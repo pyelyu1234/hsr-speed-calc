@@ -419,9 +419,9 @@ function simAll(T,ov){
   // ---- 캐릭터 행동 ----
   function charAct(s,t,info){
     const k=s.key, n=s.n++;CTX=s.u.name+' 턴 시작';const pre0=info.pre||snap();
-    if(aeonS&&marked&&wTgt===s)wpGain(1,t); // 「환락」의 사도: 턴 시작 시 원력 +1
+    if(aeonS&&marked&&wTgt===s&&!info.extra)wpGain(1,t); // 「환락」의 사도: 턴 시작 시 원력 +1 (보너스 턴 제외)
     if(s===aeonS&&manTurns>0&&!info.extra)setMan(manTurns-1,t); // 보너스 턴은 턴 수를 소모하지 않음
-    if(pearlS){if(s===pearlS)pearlTalentR=0;else if(pearlTalentR<50){pearlTalentR+=5;rGain(pearlS,5,t);}}
+    if(pearlS&&!info.extra){if(s===pearlS)pearlTalentR=0;else if(pearlTalentR<50){pearlTalentR+=5;rGain(pearlS,5,t);}} // 턴 시작 효과: 보너스 턴 제외
     let act=k==='silverwolf999'&&swState?'swenh':chosenAct(k,n), fb=false;
     if(act==='skill'&&(sp<1||(k==='aeon_aha'&&!wTgt))){act='basic';fb=sp<1?'SP 부족':'전투 스킬 대상 없음';}
     const evRec={t,seq:SEQ++,act,n,fb,extra:!!info.extra,src:info.src||'',pre:pre0};s.ev.push(evRec);
@@ -535,13 +535,13 @@ function simAll(T,ov){
       if(q.pearl&&queue.some(o=>!o.aha&&!o.pearl&&o.s===q.s)){queue.push(q);continue;}
       if(q.aha){if(!aha)continue;aha.ev.push({t,extra:true,src:q.src,seq:SEQ++});ahaAct(t,{fixed:q.fixed,consume:q.consume,src:q.src});}
       else{
-        const P=q.pearl?q:queue.find(o=>o.pearl&&o.s===q.s);
+        const P=q.pearl?q:null; // 펄 필살기 지급분은 펄이 준 보너스 턴 동안에만 적용 (앞선 은랑 2돌 보너스 턴에는 적용 안 됨)
         if(P){pearlGrant(P,t);P.turns++;}
         const recQ=charAct(q.s,t,{extra:true,src:q.src});
         if(q.pearl){const tmp=q.tmp,tmpR=q.tmpR,man0=manTurns>0,keep=man0?(aE2?0.2:0.1):0;laugh=Math.max(0,laugh-tmp*(1-keep));
           if(q.rr)q.s.R=q.s.R.filter(r=>r!==q.rr);
           const lp=man0?'쾌감':'웃음',g2=recQ.post,g0=q.g0,g1=q.g1;
-          if(q.mk)q.mk.pnote=`<b>${q.s.u.name}에게 준 보너스 턴</b>${q.turns>1?` (앞선 보너스 턴 ${q.turns-1}개 포함 ${q.turns}턴 동안 유지)`:''}<br>· 시작 시 ${lp} 포인트 +${tmp} · [${man0?'절솜감':'보상을'}] +${tmpR} 임시 지급: ${lp} ${f1(g0.laugh)} → ${f1(g1.laugh)}${g0.hid!=null?` · 은랑 히든 ${f1(g0.hid)} → ${f1(g1.hid)}`:''}<br>· 펄 보너스 턴 종료 시 회수${keep?` (${Math.round(keep*100)}% 남김)`:''}: ${lp} ${f1(g2.laugh)} → ${f1(laugh)}`;
+          if(q.mk)q.mk.pnote=`<b>${q.s.u.name}에게 준 보너스 턴</b><br>· 시작 시 ${lp} 포인트 +${tmp} · [${man0?'절솜감':'보상을'}] +${tmpR} 임시 지급: ${lp} ${f1(g0.laugh)} → ${f1(g1.laugh)}${g0.hid!=null?` · 은랑 히든 ${f1(g0.hid)} → ${f1(g1.hid)}`:''}<br>· 펄 보너스 턴 종료 시 회수${keep?` (${Math.round(keep*100)}% 남김)`:''}: ${lp} ${f1(g2.laugh)} → ${f1(laugh)}`;
           if(manTurns>0&&q.s!==evS&&q.s!==pearlS)q.s.R.push({amt:tmpR*(aE2?0.2:0.1),turns:(q.s.key==='yaoguang'||q.s.key==='waven')?3:2}); // 승격: [보상을]도 10%(아하 2돌 20%) 유지
         }}
       tryUlts(t);runFox(t);
