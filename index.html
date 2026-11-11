@@ -280,7 +280,7 @@ const swLcLaugh=fx=>[20,25,30,35,40][lcS(fx,'silverwolf999')-1];
 const swLcLabel=v=>v?`${v}중첩 (웃음 +${[20,25,30,35,40][v-1]})`:'미착용';
 function erOf(fx,k){const e=(fx.er||{})[k]||{};return 1+(e.rope?ROPE:0)/100+(e.orn?ORN:0)/100+num(e.other)/100+(k==='yaoguang'&&lcOf(fx,k)?0.12:0)+(k==='evanescia'&&lcOf(fx,k)?0.208:0);}
 const ORDER={pearl:104,yaoguang:116,trailblazer:120,sparxie:144,evanescia:146,waven:156,silverwolf999:999,aeon_aha:99999};
-function planOf(k){if(!state.plan)state.plan={};if(!state.plan[k])state.plan[k]={a:{},hold:[]};const p=state.plan[k];if(!p.a)p.a={};if(!p.hold)p.hold=[];return p;}
+function planOf(k){if(!state.plan)state.plan={};if(!state.plan[k])state.plan[k]={a:{},hold:[]};const p=state.plan[k];if(!p.a)p.a={};if(!p.hold)p.hold=[];if(!p.ud)p.ud={};return p;}
 function defaultAct(k,n){if(k==='yaoguang')return n%3===2?'skill':'basic';return cfgOf(k).acts[0];}
 function chosenAct(k,n){const p=(state.plan||{})[k];const v=p&&p.a&&p.a[n];return (v&&cfgOf(k).acts.includes(v))?v:defaultAct(k,n);}
 function swCap(man,e2){return man?(e2?999:360):300;}
@@ -473,7 +473,10 @@ function simAll(T,ov){
   function setMan(n,t){manTurns=n;if(n<=0)pearlHold=Math.min(50,pearlHold);}
   // ---- 필살기 ----
   let inUlt=false;
-  function held(s){const p=(state.plan||{})[s.key];return !!(p&&p.hold&&p.hold.includes(s.n));}
+  const ultCount={};
+  function anchorDone(d){if(d.k==='aha')return !!aha&&aha.ev.length>d.n;const c=ck(d.k);return !c||c.n>d.n;}
+  function held(s){const p=(state.plan||{})[s.key];if(!p)return false;if(p.hold&&p.hold.includes(s.n))return true;
+    const d=p.ud&&p.ud[ultCount[s.key]||0];return !!(d&&!anchorDone(d));} // 드래그로 정한 필살기 시점: 지정한 행동이 끝날 때까지 대기
   function tryUlts(t){
     if(inUlt)return;inUlt=true;const ctx0=CTX;
     for(let g=0;g<40;g++){let fired=false;
@@ -512,7 +515,7 @@ function simAll(T,ov){
           if(lcOf(fx,'silverwolf999')&&swLcReady){swLcReady=false;swLcBasic=0;laughGain(swLcLaugh(fx),t);}
           adv(s,t,100);fired=true;}
         const um=marks.slice(ml).find(m=>m.who===k&&m.k!=null); // 이번에 이 캐릭터가 쓴 필살기
-        if(um){allyAct(s,t);um.pre=sb;um.post=snap();}
+        if(um){um.ui=ultCount[k]||0;ultCount[k]=um.ui+1;allyAct(s,t);um.pre=sb;um.post=snap();}
         if(um&&pearlS&&s===pTgt&&pearlA3){pearlA3=false;eGain(pearlS,90,true);mark(t,`펄 추가 능력 3: ${s.u.name} 필살기 → 펄 에너지 +90`,'pearlA3');}
       }
       if(!fired)break;
@@ -713,11 +716,14 @@ function renderPlan(T,SIM,sims){
   }else if(PICK&&PICK.key==='aha'){const s=sims.find(o=>o.u.id==='aha');const e=s&&s.ev[PICK.n];
     if(e)pick=`<div class="picker"><b>아하 타임</b> <span class="note">${Math.round(e.t)} AV · ${cycOf(e.t)}사이클${e.extra?' · 보너스 턴':''}${e.agg!=null?` · 집계 ${f1(e.agg)}`:''}</span>${e.extra&&e.src?`<div style="width:100%" class="note">출처: ${e.src}</div>`:''}${resHtml(e)} <button class="btn" data-close>닫기</button></div>`;
   }else if(PICK&&PICK.ult){const c=active().find(a=>a.key===PICK.ult);
-    const um=SIM.marks.find(m=>m.who===PICK.ult&&m.k===PICK.k);let ex='';
+    const um=SIM.marks.find(m=>m.who===PICK.ult&&(PICK.ui!=null?m.ui===PICK.ui:m.k===PICK.k));let ex='';const udSet=um&&(((state.plan||{})[PICK.ult]||{}).ud||{})[um.ui];
     if(um){const i0=SIM.marks.indexOf(um);for(let i=i0+1;i<SIM.marks.length;i++){const m=SIM.marks[i];if(m.t!==um.t||m.k!=null)break;ex+=`<div>· ${m.name}</div>`;}}
-    pick=`<div class="picker"><b>${c?c.name:''} 필살기</b>${um?` <span class="note">${Math.round(um.t)} AV</span>`:''}<div style="width:100%"></div>${um?`<div style="width:100%;font-size:12.5px">${um.name}${ex}</div>`:''}${um&&um.pnote?`<div style="width:100%;font-size:12.5px;color:var(--warn)">${um.pnote}</div>`:''}${um?resHtml(um,um.pnote?'필살기 직전 → 보너스 턴 시작 지급 직후':'필살기 직전 → 직후'):''}<button class="btn primary" data-hold>다음 행동 뒤로 미루기</button> <button class="btn" data-close>닫기</button></div>`;}
+    pick=`<div class="picker"><b>${c?c.name:''} 필살기</b>${um?` <span class="note">${Math.round(um.t)} AV</span>`:''}<div style="width:100%"></div>${um?`<div style="width:100%;font-size:12.5px">${um.name}${ex}</div>`:''}${um&&um.pnote?`<div style="width:100%;font-size:12.5px;color:var(--warn)">${um.pnote}</div>`:''}${um?resHtml(um,um.pnote?'필살기 직전 → 보너스 턴 시작 지급 직후':'필살기 직전 → 직후'):''}${udSet?'<button class="btn" data-unudp>원래 타이밍으로</button> ':''}<button class="btn primary" data-hold>다음 행동 뒤로 미루기</button><div class="note" style="width:100%">⠿ 를 끌어서 원하는 행동 줄 위에 놓으면 그 행동이 끝난 뒤에 필살기를 써요 (게이지가 찼을 때만)</div> <button class="btn" data-close>닫기</button></div>`;}
   const holds=[];active().forEach(c=>{const p=(state.plan||{})[c.key];if(p&&p.hold)p.hold.forEach(k=>holds.push({c,k}));});
   const nChanged=active().reduce((a,c)=>a+Object.keys(((state.plan||{})[c.key]||{}).a||{}).length,0);
+  const uds=[];active().forEach(c=>{const p=(state.plan||{})[c.key];if(p&&p.ud)Object.entries(p.ud).forEach(([ui,d])=>{if(d)uds.push({c,ui:parseInt(ui),d});});});
+  const anName=d=>d.k==='aha'?`아하 타임 ${d.n+1}번째`:`${(active().find(a=>a.key===d.k)||{}).name||d.k} ${d.n+1}번째 행동`;
+  const udChips=uds.length?`<div class="chips">${uds.map(({c,ui,d})=>`<span class="chip" style="border-color:${ULT_COLOR[c.key]||'#888'}">${c.name} ${ui+1}번째 필살기 → ${anName(d)} 뒤 <button data-unud="${c.key}|${ui}" aria-label="삭제">✕</button></span>`).join('')}</div>`:'';
   const chips=holds.length?`<div class="chips">${holds.map(({c,k})=>`<span class="chip" style="border-color:${ULT_COLOR[c.key]||'#888'}">${c.name} 필살기 미룸 (${k}번째 행동 뒤 → ${k+1}번째 행동 뒤) <button data-unhold="${c.key}|${k}" aria-label="삭제">✕</button></span>`).join('')}</div>`:'';
   const view=state.planView||'order';
   const SHORT={aeon_aha:'에이언즈 아하',pearl:'펄',waven:'웨이브',evanescia:'에바',silverwolf999:'은랑',trailblazer:'개척자',sparxie:'스파키',yaoguang:'효광'};
@@ -734,8 +740,9 @@ function renderPlan(T,SIM,sims){
       if(c!==cyc){if(cyc>=0)ordH+='</div>';cyc=c;lastT=null;const lo=c===0?0:FC()+(c-1)*100,hi=c===0?FC():FC()+c*100;
         ordH+=`<div class="q-sec"><b>${c}사이클</b><span>${Math.round(lo)}–${Math.round(Math.min(hi,T))} AV</span><em>${cnt[c]||0}회</em></div><div class="q-grp">`;}
       const tr=Math.round(it.t),same=lastT===tr;lastT=tr;
-      if(it.ult){const ck=it.ult.who,cu=active().find(a=>a.key===ck);const sel=PICK&&PICK.ult===ck&&PICK.k===it.ult.k;
-        ordH+=`<div class="q-ult${sel?' sel':''}" data-ult="${ck}|${it.ult.k}" style="--c:${ULT_COLOR[ck]||'#ffcc66'}"><span class="q-dia"></span><span class="q-ulttx"><b>${SHORT[ck]||(cu?cu.name:'')}</b> 필살기</span><span class="q-t${same?' same':''}">${tr}</span></div>`;
+      if(it.ult){const ck=it.ult.who,cu=active().find(a=>a.key===ck);const sel=PICK&&PICK.ult===ck&&(PICK.ui!=null?PICK.ui===it.ult.ui:PICK.k===it.ult.k);
+        const moved=!!(((state.plan||{})[ck]||{}).ud||{})[it.ult.ui];
+        ordH+=`<div class="q-ult${sel?' sel':''}" data-ult="${ck}|${it.ult.k}|${it.ult.ui}" style="--c:${ULT_COLOR[ck]||'#ffcc66'}"><span class="q-dia"></span><span class="q-ulttx"><b>${SHORT[ck]||(cu?cu.name:'')}</b> 필살기${moved?' <i class="q-tag ch">이동</i>':''}</span><span class="q-t${same?' same':''}">${tr}</span><span class="q-drag" data-drag="${ck}|${it.ult.ui}" aria-label="끌어서 필살기 시점 바꾸기">⠿</span></div>`;
         if(sel)ordH+=`<div class="q-pick">${pick}</div>`;return;}
       no++;const u=it.u,e=it.e,ck=u.id!=='aha'?u.key:'aha';
       const sel=PICK&&PICK.key===ck&&PICK.n===e.n;
@@ -773,11 +780,13 @@ function renderPlan(T,SIM,sims){
   #planOrder .q-ult{display:flex;align-items:center;gap:10px;padding:4px 14px 4px 44px;cursor:pointer;font-size:12.5px;color:var(--muted)}
   #planOrder .q-dia{width:11px;height:11px;transform:rotate(45deg);background:var(--c);border-radius:2px;flex:none;margin:0 9px 0 9px}
   #planOrder .q-ulttx{flex:1}#planOrder .q-ulttx b{color:var(--c)}
+  #planOrder{position:relative}#planOrder .q-drag{touch-action:none;cursor:grab;color:var(--muted);font-size:18px;line-height:1;padding:4px 2px 4px 10px;user-select:none}
+  #planOrder .q-ult.dragging{opacity:.5}#planOrder .q-dropline{position:absolute;left:10px;right:10px;height:3px;border-radius:2px;background:var(--accent);box-shadow:0 0 6px var(--accent);pointer-events:none;display:none;z-index:3}
   #planOrder .q-pick{padding:0 12px 8px}#planOrder .q-pick .picker{margin-top:2px;background:var(--bg)}
   </style>`;
   const viewBtns=`<div style="margin-bottom:8px"><button class="btn${view==='order'?' primary':''}" data-view="order">순서대로 보기</button> <button class="btn${view==='lane'?' primary':''}" data-view="lane">캐릭터별 시간축</button></div>`;
-  const help=view==='order'?`<div class="note" style="margin-bottom:6px">위에서부터 행동 순서 · 오른쪽 숫자 = AV (흐린 숫자 = 바로 위와 같은 시점) · 노란 줄 = 보너스 턴 · ◆ 필살기 (누르면 미루기) · 줄을 누르면 행동 변경·자원 확인</div>`:'';
-  box.innerHTML=ordCss+viewBtns+(view==='order'?help+`<div id="planOrder">${ordH}</div>`+`${chips}`+(nChanged||holds.length?'<div style="margin-top:8px"><button class="btn" data-planreset>행동 선택 모두 초기화</button></div>':''):'')+(view==='lane'?`<div class="note" style="margin-bottom:6px">${legend}</div>
+  const help=view==='order'?`<div class="note" style="margin-bottom:6px">위에서부터 행동 순서 · 오른쪽 숫자 = AV (흐린 숫자 = 바로 위와 같은 시점) · 노란 줄 = 보너스 턴 · ◆ 필살기: ⠿를 끌어 원하는 행동 아래에 놓으면 그 뒤로 이동 · 줄을 누르면 행동 변경·자원 확인</div>`:'';
+  box.innerHTML=ordCss+viewBtns+(view==='order'?help+`<div id="planOrder">${ordH}</div>`+`${chips}${udChips}`+(nChanged||holds.length||uds.length?'<div style="margin-top:8px"><button class="btn" data-planreset>행동 선택 모두 초기화</button></div>':''):'')+(view==='lane'?`<div class="note" style="margin-bottom:6px">${legend}</div>
     <div class="note" style="margin-bottom:6px">아이콘을 누르면 행동을 바꿀 수 있어요 · 전 전투 스킬 · 평 일반 공격 · 강 강화 일반 공격 · 스 스파키 함정 턴 · ★ 아하 타임 · ◆ 필살기 (누르면 미루기) · 빈 원 = 보너스 턴 · 빨간 테두리 = SP 부족으로 일반 공격 · 흰 점 = 직접 바꾼 행동</div>
     <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--line)" id="planScroll">${sv}</div>${pick}${chips}
     ${nChanged||holds.length?'<div style="margin-top:8px"><button class="btn" data-planreset>행동 선택 모두 초기화</button></div>':''}`:'');
@@ -785,8 +794,8 @@ function renderPlan(T,SIM,sims){
   const scr=document.getElementById('planScroll');if(scr){if(window.__planScroll)scr.scrollLeft=window.__planScroll;scr.onscroll=()=>{window.__planScroll=scr.scrollLeft;};}
   const po=document.getElementById('planOrder');if(po){if(window.__ordScroll)po.scrollTop=window.__ordScroll;po.onscroll=()=>{window.__ordScroll=po.scrollTop;};}
   const svg=document.getElementById('planSvg')||po;
-  if(svg)svg.addEventListener('click',ev=>{const a=ev.target.closest('[data-act]'),u=ev.target.closest('[data-ult]');
-    if(u){const [k,n]=u.dataset.ult.split('|');PICK=(PICK&&PICK.ult===k&&PICK.k===parseInt(n))?null:{ult:k,k:parseInt(n)};update();return;}
+  if(svg)svg.addEventListener('click',ev=>{if(Date.now()-(window.__dragJust||0)<500)return;const a=ev.target.closest('[data-act]'),u=ev.target.closest('[data-ult]');
+    if(u){const [k,n,ui]=u.dataset.ult.split('|');const uiN=ui!==undefined&&ui!==''?parseInt(ui):null;PICK=(PICK&&PICK.ult===k&&(uiN!=null?PICK.ui===uiN:PICK.k===parseInt(n)))?null:{ult:k,k:parseInt(n),ui:uiN};update();return;}
     if(a){const [k,n]=a.dataset.act.split('|');PICK=(PICK&&PICK.key===k&&PICK.n===parseInt(n))?null:{key:k,n:parseInt(n)};update();}});
   box.querySelectorAll('[data-setact]').forEach(b=>b.onclick=()=>{const p=planOf(PICK.key);const v=b.dataset.setact;
     if(v===defaultAct(PICK.key,PICK.n))delete p.a[PICK.n];else p.a[PICK.n]=v;update();});
@@ -794,6 +803,21 @@ function renderPlan(T,SIM,sims){
   const cb=box.querySelector('[data-close]');if(cb)cb.onclick=()=>{PICK=null;update();};
   box.querySelectorAll('[data-unhold]').forEach(b=>b.onclick=()=>{const [k,n]=b.dataset.unhold.split('|');const p=planOf(k);p.hold=p.hold.filter(v=>v!==parseInt(n));update();});
   const pr=box.querySelector('[data-planreset]');if(pr)pr.onclick=()=>{state.plan={};PICK=null;update();};
+  box.querySelectorAll('[data-unud]').forEach(b=>b.onclick=()=>{const [k,ui]=b.dataset.unud.split('|');const p=planOf(k);delete p.ud[parseInt(ui)];update();});
+  const uu=box.querySelector('[data-unudp]');if(uu)uu.onclick=()=>{const p=planOf(PICK.ult);delete p.ud[PICK.ui];PICK=null;update();};
+  if(po)po.querySelectorAll('[data-drag]').forEach(h=>h.addEventListener('pointerdown',ev=>{
+    ev.preventDefault();ev.stopPropagation();const [k,uiS]=h.dataset.drag.split('|');const ui=parseInt(uiS);
+    const row=h.closest('.q-ult');row.classList.add('dragging');const line=document.createElement('div');line.className='q-dropline';po.appendChild(line);
+    try{h.setPointerCapture(ev.pointerId);}catch(e){}
+    let target=null,moved=false,lx=ev.clientX,ly=ev.clientY,raf=0;
+    const pickAt=(x,y)=>{const el=document.elementFromPoint(x,y);const r=el&&el.closest?el.closest('.q-row'):null;target=r&&po.contains(r)?r:null;
+      if(target){const rr=target.getBoundingClientRect(),pr2=po.getBoundingClientRect();line.style.top=(rr.bottom-pr2.top+po.scrollTop-1)+'px';line.style.display='block';}else line.style.display='none';};
+    const tick=()=>{const r=po.getBoundingClientRect();const d=ly<r.top+48?-10:ly>r.bottom-48?10:0;if(d&&moved){po.scrollTop+=d;pickAt(lx,ly);}raf=requestAnimationFrame(tick);};
+    const mv=e=>{moved=true;lx=e.clientX;ly=e.clientY;pickAt(lx,ly);};
+    const up=()=>{h.removeEventListener('pointermove',mv);h.removeEventListener('pointerup',up);h.removeEventListener('pointercancel',up);cancelAnimationFrame(raf);line.remove();row.classList.remove('dragging');
+      window.__dragJust=Date.now();
+      if(moved&&target){const [tk,tn]=target.dataset.act.split('|');const p=planOf(k);p.ud[ui]={k:tk,n:parseInt(tn)};PICK=null;update();}};
+    h.addEventListener('pointermove',mv);h.addEventListener('pointerup',up);h.addEventListener('pointercancel',up);raf=requestAnimationFrame(tick);}));
 }
 
 window.addEventListener('resize',()=>{clearTimeout(window.__rt);window.__rt=setTimeout(update,150);});
