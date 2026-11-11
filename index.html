@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>붕괴: 스타레일 속도 계산기 (에이언즈 아하 대응)</title>
+<style>
+:root{
+  --bg:#0f0d1a; --panel:#1a1730; --panel2:#231f3d; --line:#3a3560;
+  --text:#ece9ff; --muted:#a29dc4; --accent:#c58bff; --accent2:#ff7ab8;
+  --ok:#5fe0a8; --warn:#ffcc66; --bad:#ff6b7a;
+}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#2a1f4a 0,transparent 60%),var(--bg);
+  color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  font-size:15px;line-height:1.5}
+.wrap{max-width:1000px;margin:0 auto;padding:20px 14px 60px}
+h1{font-size:22px;margin:0 0 4px;letter-spacing:-.3px}
+h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+h2{font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+h2 .tag{font-size:11px;font-weight:600;color:var(--bg);background:var(--accent);padding:2px 7px;border-radius:99px}
+.chars{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.char{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}
+.char.aha{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.char input[type=text]{font-weight:700}
+label.f{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;font-size:13px;color:var(--muted)}
+input[type=number],input[type=text]{width:96px;background:#0f0d1a;border:1px solid var(--line);color:var(--text);
+  border-radius:8px;padding:6px 8px;font-size:14px;text-align:right}
+input[type=text]{width:100%;text-align:left;margin-bottom:4px}
+select{width:100%;background:#0f0d1a;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px 8px;font-size:14px;font-weight:700}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:0}
+.chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);margin:6px 0;cursor:pointer}
+.chk input{accent-color:var(--accent);width:16px;height:16px}
+.final{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);display:flex;justify-content:space-between;align-items:baseline}
+.final b{font-size:22px}
+.final small{color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:7px 12px;border-radius:9px;cursor:pointer;font-size:13px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:linear-gradient(90deg,#7b4dff,#c04dff);border:none}
+.ahabox{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}
+.stat .k{font-size:12px;color:var(--muted)}
+.stat .v{font-size:24px;font-weight:800}
+.stat .d{font-size:12px;color:var(--muted)}
+.formula{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:var(--muted);background:#0f0d1a;
+  border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:10px;overflow-x:auto;white-space:nowrap}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600;font-size:12px}
+.tbl{overflow-x:auto}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:700}
+.p-ok{background:rgba(95,224,168,.15);color:var(--ok)}
+.p-warn{background:rgba(255,204,102,.15);color:var(--warn)}
+.p-bad{background:rgba(255,107,122,.15);color:var(--bad)}
+.cyc{color:var(--accent);font-weight:700}
+.note{font-size:12.5px;color:var(--muted)}
+.note li{margin:3px 0}
+details summary{cursor:pointer;color:var(--muted);font-size:13px}
+.adv label.f input{width:80px}
+.fxgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.fxgrid .stat label.f{margin:8px 0}
+.picker{margin-top:8px;padding:8px 10px;border:1px solid var(--accent);border-radius:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{border:1px solid;border-radius:99px;padding:3px 4px 3px 10px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px}
+.chip button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 6px}
+.trk{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
+.trk .tl{font-size:12.5px}
+@media(max-width:560px){.picker{margin-top:8px;padding:8px 10px;border:1px solid var(--accent);border-radius:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{border:1px solid;border-radius:99px;padding:3px 4px 3px 10px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px}
+.chip button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 6px}
+.trk{grid-template-columns:1fr}}
+.sig{margin:8px 0}
+.sighead{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+.sighead b{color:var(--accent)}
+.sig input[type=range]{width:100%;accent-color:var(--accent);height:28px;margin:2px 0}
+.sigticks{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:0 2px}
+.buffbox{margin-top:8px;padding:8px;border-radius:8px;background:rgba(95,224,168,.06);border:1px solid rgba(95,224,168,.25)}
+.buffbox label.f input{width:80px}
+a{color:var(--accent)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span>붕괴: 스타레일</span> 속도 계산기</h1>
+  <div class="sub">최종 속도 · 행동 값(AV) · 사이클별 행동 횟수 · 아하 타임 속도 · 속도 구간 계산 — 4.7 에이언즈 아하 대응</div>
+
+  <section style="padding:12px 16px">
+    <div class="row" id="modeRow"></div>
+  </section>
+
+  <section>
+    <h2>환락 캐릭터 구성 <span class="tag">입력</span></h2>
+    <div class="chars" id="chars"></div>
+    <div class="row" style="margin-top:12px">
+            <button class="btn" id="reset">초기화</button>
+    </div>
+    <p class="note" style="margin:10px 0 0">「내 속도」 = 캐릭터 상세 화면의 최종 속도</p>
+    <p class="note" id="elNote" style="margin:6px 0 0"></p>
+  </section>
+
+  <section>
+    <h2>전투 중 속도 버프</h2>
+    <label class="chk" style="font-size:14px"><input type="checkbox" id="buffOn"> 속도 버프 적용해서 계산하기</label>
+    <div id="presetBuffs" style="margin-top:6px"></div>
+    <div class="row" style="margin-top:6px">
+      <label class="f">기타 파티 전체 속도 버프 % <input type="number" id="tPct" step="0.1"></label>
+    </div>
+  </section>
+
+  <section>
+    <h2>행동 게이지 증가</h2>
+    <div class="fxgrid">
+      <div class="stat">
+        <div class="k">전투 시작</div>
+        <div id="fxMhWrap" style="margin:6px 0;font-size:13px">에이언즈 아하 추가 능력 3 <span class="note">— 전투 시작 시 본인 행동 게이지 +30%</span> <span class="pill" id="fxMhState"></span></div>
+        <div style="margin:8px 0;font-size:13px">에이언즈 아하 비술 <span class="note">— 전투 진입 시 아하 타임 보너스 턴 1회 ([원력] +1)</span> <span class="pill" id="fxTechState"></span></div>
+        <div class="note" style="color:var(--text);margin-top:8px">환커공 착용 <span class="note">— 착용자 행동 게이지 +40% (여러 명 착용 가능)</span></div>
+        <div id="fxOrn"></div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <h2>캐릭터별 설정</h2>
+    <div id="setBox"></div>
+    <p class="note" style="margin:8px 0 0">모든 캐릭터는 필살기 에너지의 절반으로 시작 · 필살기 후 에너지 +5 · 에너지가 차면 바로 필살기 (수직선에서 미루기 가능) · 피격·처치 에너지와 웨이브 전환은 계산하지 않음</p>
+  </section>
+
+  <section>
+    <h2>사이클별 행동 횟수</h2>
+    <div class="row" style="margin-bottom:10px">
+      <label class="f" style="color:var(--text)">계산할 사이클 수 <input type="number" id="cycles" min="1" max="30" step="1"></label>
+      <span class="note" id="totalAV"></span>
+    </div>
+    <div class="tbl"><table id="actTable"></table></div>
+  </section>
+
+  <section>
+    <h2>아하 타임 속도</h2>
+    <div class="row" id="ownedRow" style="margin-bottom:10px">
+      <label class="chk"><input type="checkbox" id="owned"> 에이언즈 아하 보유 (파티에 없어도 적용)</label>
+      <div id="ownedSigWrap" style="width:100%"></div>
+    </div>
+    <p class="note" id="ownedNote" style="margin:-4px 0 10px"></p>
+    <div class="ahabox" id="ahaStats"></div>
+    <div class="formula" id="ahaFormula"></div>
+    <details class="adv" style="margin-top:10px">
+      <summary>공식 계수 수정 (출시 후 수치가 바뀌면 여기서 조정)</summary>
+      <div class="row" style="margin-top:8px">
+        <label class="f">에이언즈 아하 없을 때 기본 속도 <input type="number" id="ahaBase" step="1"></label>
+        <label class="f">1위 환락 계수 <input type="number" id="c1" step="0.01"></label>
+        <label class="f">2위 환락 계수 <input type="number" id="c2" step="0.01"></label>
+        <label class="f">3위 환락 계수 <input type="number" id="c3" step="0.005"></label>
+        <label class="f">4위 환락 계수 <input type="number" id="c4" step="0.005"></label>
+      </div>
+      <button class="btn" id="resetCoef" style="margin-top:6px">계수 기본값으로</button>
+    </details>
+  </section>
+
+
+  <section>
+    <h2>라운드별 행동 · 한 번 더 행동까지</h2>
+    <div class="row" style="margin-bottom:10px">
+      <label class="f" style="color:var(--text)">라운드 수 <input type="number" id="bpCycles" min="1" max="30" step="1"></label>
+    </div>
+    <div class="tbl"><table id="bpTable"></table></div>
+    <p class="note" style="margin:6px 0 0">위: 그 라운드 행동 횟수 · 아래: 그 라운드까지 한 번 더 행동하려면 필요한 속도 (괄호는 목표 속도, 소수 둘째 자리에서 올림)</p>
+  </section>
+
+  <section>
+    <h2>행동 순서 타임라인</h2>
+    <div id="planBox"></div>
+    <details style="margin-top:10px"><summary>목록으로 보기</summary><div class="tbl" style="margin-top:8px"><table id="timeline"></table></div></details>
+  </section>
+
+
+</div>
+
+<script>
+const COLORS=['#c58bff','#5fd4ff','#ffb35f','#5fe0a8','#ff7ab8'];
+const DEFAULT_COEF={ahaBase:80,c1:0.2,c2:0.1,c3:0.05,c4:0.025};
+// 환락 캐릭터 기초 속도
+const CHAR_DB=[
+  {key:'aeon_aha',name:'에이언즈 아하',base:94,aeon:true},
+  {key:'pearl',name:'펄',base:99},
+  {key:'waven',name:'어벤츄린 웨이브',base:107},
+  {key:'evanescia',name:'에바네시아',base:104},
+  {key:'silverwolf999',name:'은랑 Lv.999',base:110},
+  {key:'trailblazer',name:'환척자',base:106},
+  {key:'sparxie',name:'스파키',base:107},
+  {key:'yaoguang',name:'효광',base:101},
+];
+const dbOf=k=>CHAR_DB.find(c=>c.key===k);
+const blank=()=>({key:'none',name:'',base:0,spd:0});
+function fromDb(k){
+  if(k==='none')return blank();
+  if(k==='custom')return {key:'custom',name:'직접 입력',base:100,spd:100};
+  const d=dbOf(k);return {key:k,name:d.name,base:d.base,spd:d.base,sig:0};
+}
+function defaultChars(){return [blank(),blank(),blank(),blank()];}
+let state={chars:defaultChars(),coef:{...DEFAULT_COEF},cycles:3,bpCycles:3,owned:{has:false,sig:0},mode:'moc',buffOn:false,teamBuff:{pct:0},presetBuffs:{yg:false,gx:false}};
+try{const keys=['hsrSpdCalc','hsrSpdCalcV58','hsrSpdCalcV57','hsrSpdCalcV56','hsrSpdCalcV55','hsrSpdCalcV54','hsrSpdCalcV53'];let raw=null;for(const k of keys){raw=localStorage.getItem(k);if(raw)break;}const s=JSON.parse(raw||'null');if(s&&s.chars&&s.chars.length===4)state={...state,...s,coef:{...DEFAULT_COEF,...s.coef}};}catch(e){}
+function save(){try{localStorage.setItem('hsrSpdCalc',JSON.stringify(state));}catch(e){}}
+const active=()=>state.chars.map((c,i)=>({...c,i})).filter(c=>c.key!=='none');
+const isAeon=c=>c.key==='aeon_aha';
+
+const num=v=>{const n=parseFloat(v);return isFinite(n)?n:0};
+const f1=n=>(Math.round(n*10)/10).toFixed(1);
+const f2=n=>(Math.round(n*100)/100).toFixed(2);
+function lockArea(el,locked){if(!el)return;el.style.opacity=locked?.45:1;el.style.pointerEvents=locked?'none':'';el.style.userSelect=locked?'none':'';el.querySelectorAll('input,select,button,textarea').forEach(x=>{x.disabled=locked;x.tabIndex=locked?-1:0;});}
+const sigLabel=n=>n?`${n}중첩 (기초 속도 +${SIG_SPD[n]})`:'미착용';
+function sigSlider(attr,val,title='전용 광추'){
+  return `<div class="sig"><div class="sighead"><span>${title}</span><b class="sigval">${sigLabel(val)}</b></div>
+  <input type="range" min="0" max="5" step="1" ${attr} value="${val}">
+  <div class="sigticks"><span>미착용</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div></div>`;
+}
+const ceil1=n=>Math.ceil(n*10-1e-6)/10; // 목표 속도는 올림 (예: 133.333… → 133.4)
+const f3=n=>(Math.round(n*1000)/1000).toFixed(3);
+const EPS=1e-9;
+
+const SIG_SPD=[0,12,14,16,18,20];
+const AEON_BASE=94; // 미착용, 중첩 1~5
+const sigBonus=c=>isAeon(c)?(SIG_SPD[parseInt(c.sig)||0]||0):0;
+function baseSpd(c){return num(c.base)+sigBonus(c);}
+const PRESET_BUFFS=[
+  {key:'yg',name:'효광 2돌',desc:'아군 전체 속도 +12%',pct:12,need:'yaoguang'},
+  {key:'gx',name:'곽향 1돌',desc:'모든 아군 속도 +12% (곽향이 들어갈 빈 칸 필요)',pct:12,needSlot:true},
+];
+const ygInParty=()=>active().some(c=>c.key==='yaoguang');
+function pbBlocked(b){if(b.need&&!active().some(c=>c.key===b.need))return '— 효광이 파티에 없어서 적용 안 됨';if(b.needSlot&&active().length>=4)return '— 환락 캐릭터 4명으로 파티가 꽉 차서 곽향이 들어갈 자리가 없어 적용 안 됨';return '';}
+function presetPct(){const pb=state.presetBuffs||{};return PRESET_BUFFS.reduce((t,b)=>t+((pb[b.key]&&!pbBlocked(b))?b.pct:0),0);}
+function buffAmt(c){if(!state.buffOn)return 0;const b=state.teamBuff||{pct:0,flat:0};
+  return baseSpd(c)*totalPct(c)/100;}
+function totalPct(c){const b=state.teamBuff||{pct:0};return num(c.bpct)+num(b.pct)+presetPct();}
+const autoPct=c=>presetPct()+num((state.teamBuff||{}).pct);
+function finalSpd(c){return num(c.spd)+buffAmt(c);}
+// ===== 행동 게이지 증가 / 추가 턴 시뮬레이션 =====
+function fxState(){if(!state.fx)state.fx={orns:[],wpTarget:-1,wpHeal:false,pearlTgt:-1,tbTgt:-1,wavCost:130,swUlt:60,lc:{},er:{},eid:{}};const f=state.fx;f.ahaMode='auto';['lc','er','eid'].forEach(k=>{if(!f[k])f[k]={};});if(!f.orns)f.orns=[];return f;}
+function parseTimes(str){return String(str||'').split(/[,\s]+/).map(parseFloat).filter(x=>isFinite(x)&&x>=0).sort((a,b)=>a-b);}
+const hasKey=k=>active().find(c=>c.key===k);
+function buildUnits(ahaSpd,withAha){
+  const fx=fxState(), act=active();
+  const units=act.map(c=>{
+    let sa=num(c.adv);
+    if(isAeon(c))sa+=30;
+    if((fx.orns||[]).includes(c.i))sa+=40;
+    return {id:'c'+c.i,slot:c.i,key:c.key,name:c.name,base:baseSpd(c),spd:finalSpd(c),color:COLORS[c.i],startAdv:Math.min(100,Math.max(0,sa)),effects:[]};
+  });
+  const aha={id:'aha',name:'아하 타임',spd:ahaSpd,color:COLORS[4],startAdv:0,effects:[]};
+  const marks=[];
+  if(hasKey('aeon_aha')&&fx.ahaMode==='manual')parseTimes(fx.ahaUlt).forEach(t=>{marks.push({t,name:'에이언즈 아하 궁극기'});aha.effects.push({t,adv:20,src:'에이언즈 아하 궁극기'});});
+  if(withAha)units.push(aha);
+  return {units,aha,marks};
+}
+let CUR={units:[],T:0};
+// ===== 시뮬레이션 엔진 v54: 행동 선택 · SP · 에너지 · 웃음 포인트 · 원력 · 히든 스코어 =====
+const CFG={
+  aeon_aha:{short:'아',acts:['skill','basic']},
+  pearl:{short:'펄',acts:['enh'],cost:90,start:45,energy:true},
+  waven:{short:'웨',acts:['skill','basic'],energy:true},
+  evanescia:{short:'에',acts:['skill','basic'],cost:240,energy:true},
+  silverwolf999:{short:'은',acts:['skill','basic']},
+  trailblazer:{short:'개',acts:['skill','basic'],cost:160,energy:true},
+  sparxie:{short:'스',acts:['spx'],cost:160,energy:true},
+  yaoguang:{short:'효',acts:['basic','skill'],cost:180,energy:true},
+};
+const ACT_NAME={skill:'전투 스킬',basic:'일반 공격',enh:'강화 일반 공격',spx:'전투 스킬 → 함정 → 강화 일반 공격',swenh:'강화 일반 공격 (무적 플레이어)'};
+const ACT_SHORT={skill:'전',basic:'평',enh:'강',spx:'스',swenh:'강'};
+const ROPE=19.4, ORN=5;
+function cfgOf(k){return CFG[k]||{short:'?',acts:['skill','basic']};}
+function eidOf(fx,k){return parseInt((fx.eid||{})[k])||0;}
+function lcOf(fx,k){return !!(fx.lc||{})[k];}
+function lcS(fx,k){return Math.min(5,Math.max(1,parseInt((fx.lcS||{})[k])||1));}
+const swLcLaugh=fx=>[20,25,30,35,40][lcS(fx,'silverwolf999')-1];
+function erOf(fx,k){const e=(fx.er||{})[k]||{};return 1+(e.rope?ROPE:0)/100+(e.orn?ORN:0)/100+num(e.other)/100+(k==='yaoguang'&&lcOf(fx,k)?0.12:0)+(k==='evanescia'&&lcOf(fx,k)?0.208:0);}
+const ORDER={pearl:104,yaoguang:116,trailblazer:120,sparxie:144,evanescia:146,waven:156,silverwolf999:999,aeon_aha:99999};
+function planOf(k){if(!state.plan)state.plan={};if(!state.plan[k])state.plan[k]={a:{},hold:[]};const p=state.plan[k];if(!p.a)p.a={};if(!p.hold)p.hold=[];return p;}
+function defaultAct(k,n){if(k==='yaoguang')return n%3===2?'skill':'basic';return cfgOf(k).acts[0];}
+function chosenAct(k,n){const p=(state.plan||{})[k];const v=p&&p.a&&p.a[n];return (v&&cfgOf(k).acts.includes(v))?v:defaultAct(k,n);}
+function swCap(man,e2){return man?(e2?999:360):300;}
+
+function simAll(T,ov){
+  ov=ov||{};
+  const fx=fxState(), units=CUR.units, AH=window.__AHA||{base:80,coefs:[0.2,0.1,0.05,0.025]};
+  const st=units.map(u=>{const spd0=(u.id in ov)?ov[u.id]:u.spd;const spd=spd0;const iv=spd>0?10000/spd:Infinity;
+    return {u,key:u.key,spd0,spd,iv,next:spd>0?iv*(1-u.startAdv/100):Infinity,ev:[],pct:{},n:0,E:0};});
+  const byId=Object.fromEntries(st.map(s=>[s.u.id,s]));
+  const aha=byId['aha'];
+  const chars=st.filter(s=>s!==aha);
+  const ck=k=>chars.find(s=>s.key===k);
+  const marks=[];let SEQ=0;
+  const aeonS=ck('aeon_aha'),pearlS=ck('pearl'),wavenS=ck('waven'),ygS=ck('yaoguang'),spxS=ck('sparxie'),tbS=ck('trailblazer'),swS=ck('silverwolf999'),evS=ck('evanescia');
+  const nEl=chars.length;
+  const aE2=!!aeonS&&eidOf(fx,'aeon_aha')>=2;
+  const log=[]; // 자원 기록 (디버그/표시용)
+  // ---- 동적 속도 ----
+  const ahaFormula=()=>{const pool=chars.map(s=>s.spd).sort((a,b)=>b-a);let v=AH.base;pool.slice(0,4).forEach((p,i)=>v+=p*(AH.coefs[i]||0));return v;};
+  const ahaOffset=aha?(('aha' in ov)?ov.aha-ahaFormula():0):0;
+  function setSpd(s,v,t){if(!(v>0)||Math.abs(v-s.spd)<1e-9)return;const rem=Math.max(0,s.next-t);s.next=t+rem*s.spd/v;s.spd=v;s.iv=10000/v;}
+  function refresh(s,t){const p=Object.values(s.pct).reduce((a,b)=>a+b,0);setSpd(s,s.spd0+num(s.u.base)*p/100,t);}
+  function refreshAha(t){if(aha)setSpd(aha,ahaFormula()+ahaOffset,t);}
+  function setPct(s,key,val,t){if(val)s.pct[key]=val;else delete s.pct[key];refresh(s,t);refreshAha(t);}
+  const adv=(s,t,p)=>{if(!s)return;const rem=Math.max(0,s.next-t);s.next=t+Math.max(0,rem-p/100*s.iv);};
+  const mark=(t,name,who,extra)=>marks.push(Object.assign({t,name,who,seq:SEQ++},extra||{}));
+
+  // ---- 공용 자원 ----
+  const spMax=5+(spxS&&lcOf(fx,'sparxie')?Math.min(3,nEl):0);
+  let sp=3;
+  const spGain=n=>{sp=Math.min(spMax,sp+n);};
+  let laugh=0, armed40=true, manTurns=0;
+  // 은랑
+  const swThr=Math.max(60,num(fx.swUlt)||60);
+  let hid=0, swState=false, swUses=0, stateGain=0, nextThr=120, boxP=1, boxAcc=0, spAcc=0, swLcReady=true, swLcBasic=0;
+  // 스파키 선물
+  let gPity=0, gFirst=true, gAcc=0, thrill=0; const THR_MAX=Infinity; // [킬링 포인트]: SP 대신 소모, 보유 최대치 없음
+  // 원력
+  let wp=0, marked=false, aeonLcCd=-1;
+  // 웨이브
+  let wUltTurns=0, wind=false, wavElCount=0;
+  // 웨이브 [열의]: 비술 +2 · 전투 스킬 +4 · 필살기 +8 · 동료 공격 +1 · 추가 능력 3 (동료 일반/전투 스킬/추가 공격/필살기 +2, 최대 6회, 전투 스킬 시 초기화) · 2돌 환락 스킬 후 +4
+  let zeal=0, allIn=false, wavA3=0, wavElTotal=0, inAha=false;
+  const wEid=wavenS?eidOf(fx,'waven'):0;
+  const zMax=wEid>=2?50:30, zThr=[10].concat(wEid>=1?[20,30]:[],wEid>=2?[40,50]:[]).filter((v,i,a)=>a.indexOf(v)===i);
+  function zealGain(n,t){if(!wavenS||n<=0)return;const b=zeal;zeal=Math.min(zMax,zeal+n);
+    zThr.filter(th=>b<th-1e-9&&zeal>=th-1e-9).forEach(th=>{allIn=true;mark(t,`웨이브 [열의] ${th} 도달 → [건배! 뜨거운 여름을 위하여] 발동 (집계 20)`,'wavZeal');const c0=CTX;castElation(wavenS,t,20);CTX=c0;});}
+  function allyAct(s,t){if(wavenS&&s!==wavenS&&wavA3<6){wavA3++;zealGain(2,t);}} // 웨이브 추가 능력 3
+  const wCOST=Math.max(1,num(fx.wavCost)||130);
+  // 펄·효광·스파키·환척자 에너지
+  const COST={pearl:90,waven:wCOST,yaoguang:180,sparxie:160,trailblazer:160,evanescia:240};
+  chars.forEach(s=>{s.R=[];if(COST[s.key])s.E=s.key==='pearl'?45:s.key==='evanescia'?240:COST[s.key]/2;});
+  const elOrder=chars.slice().sort((a,b)=>(ORDER[a.key]||500)-(ORDER[b.key]||500));
+  let tbE1=0, evCum=0, evUlts=0, pearlTalentR=0, tbA3=false, pearlHold=0, pearlA3=true; // 펄 추가 능력 3: 전투 진입·필살기 후 저본의 다음 필살기 때 펄 에너지 고정 +90
+  const pearlCap=()=>manTurns>0?75:50; // 펄 [보상을] 보유 최대치 50 · [환락만상] 중 75
+  const evE2=evS&&eidOf(fx,'evanescia')>=2;
+  const ER={};chars.forEach(s=>ER[s.key]=erOf(fx,s.key));
+  const eGain=(s,n,fixed)=>{if(!s||!COST[s.key])return;const g=fixed?n:n*ER[s.key];
+    if(s===evS){s.E=Math.min(480+(manTurns>0?(aE2?240:60):0),s.E+g);evCum+=Math.min(240,g);while(evCum>=240-1e-9){evCum-=240;foxQ++;}}else s.E+=g;};
+  let foxQ=0;
+  // ---- [훌륭한 솜씨에는 보상을] ----
+  function rGain(s,amt,t,o){o=o||{};if(!s||amt<=0)return;
+    if(s===evS){if(!o.conv)eGain(s,amt);return;}
+    if(s===pearlS&&!o.temp)pearlHold=Math.min(pearlCap(),pearlHold+amt);
+    if(s.key!=='pearl'&&!o.temp)s.R.push({amt,turns:(s.key==='yaoguang'||s.key==='waven')?3:2});
+    if(s===swS&&manTurns>0)hiddenGain((aE2?0.4:0.2)*amt,t);
+    if(evS&&(ORDER[s.key]||500)<146)rGain(evS,amt*0.5*(evE2?1.5:1),t,{});
+  }
+  function tickR(s,t){if(!s.R.length)return;const keep=[];s.R.forEach(r=>{r.turns--;if(r.turns>0)keep.push(r);else if(evS&&s!==evS)rGain(evS,r.amt*0.5*(evE2?2:1),t,{});});s.R=keep;}
+  const heldR=s=>s?s.R.reduce((a,r)=>a+r.amt,0):0;
+  const snap=()=>({sp,laugh,man:manTurns>0,hid:swS?hid:null,th:spxS?thrill:null,R:chars.filter(c=>c!==evS).map(c=>({name:c.u.name,v:c===pearlS?pearlHold:heldR(c),cap:c===pearlS?pearlCap():null}))});
+  const pTgt=pearlS?chars.find(s=>s!==pearlS&&s.u.slot===num(fx.pearlTgt)):null;
+  const tbTgt=tbS?chars.find(s=>s!==tbS&&s.u.slot===num(fx.tbTgt)):null;
+  const wTgt=aeonS?chars.find(s=>s!==aeonS&&s.u.slot===num(fx.wpTarget)):null;
+  const pAdv=nEl>=3?30:nEl===2?15:10, pExtra=nEl>=4;
+
+  const queue=[]; // 즉시 처리할 보너스 행동
+  let CTX='전투 시작'; // 지금 웃음 포인트·히든 스코어를 만드는 출처
+  // ---- 웃음 포인트 / 히든 스코어 ----
+  function hiddenGain(n,t){
+    if(!swS||n<=0)return;
+    const before=hid;hid=Math.min(swCap(manTurns>0,aE2),hid+n);const add=hid-before;
+    if(swState&&eidOf(fx,'silverwolf999')>=2){const sg0=stateGain;stateGain+=add;
+      const b0=nextThr-120, st0=sg0-b0;let stk=stateGain-b0;
+      while(stk>=120-1e-9){stk-=120;nextThr+=120;swUses+=1;queue.push({s:swS,src:`은랑 2돌 · 스택 ${f1(st0)} + ${f1(add)} = ${f1(st0+add)} → 120 소모, 남은 스택 ${f1(stk)} ← ${CTX}`});}}
+  }
+  function laughGain(n,t){
+    if(n<=0)return;laugh+=n;hiddenGain(n,t);
+    if(aeonS&&aha&&armed40&&laugh>=40-1e-9){armed40=false;wpGain(1,t);}
+  }
+  function spSpend(n,t){
+    for(let i=0;i<n;i++){sp-=1;
+      if(swState&&heldR(swS)>0){boxAcc+=boxP;if(boxAcc>=1-1e-9){boxAcc-=1;boxP*=0.2;boxEffect(t);}}}
+  }
+  function boxEffect(t){laughGain(1,t);spAcc+=2/3;while(spAcc>=1-1e-9){spAcc-=1;spGain(1);}}
+  function attackBy(s,t){if(wavenS&&s!==wavenS){laughGain(1,t);zealGain(1,t);}}
+  // ---- 원력 ----
+  function wpGain(n,t){if(!aeonS||!aha)return;wp=Math.min(10,wp+n);} // 필살기는 행동이 끝난 뒤에만 확인
+  // ---- 환락 스킬 ----
+  function castElation(s,t,agg){
+    const k=s.key;CTX=s.u.name+' 환락 스킬';
+    attackBy(s,t); // 환락 스킬도 공격 → 웨이브 웃음 포인트 +1
+    if(['pearl','waven','yaoguang','sparxie','trailblazer','evanescia'].includes(k))eGain(s,5);
+    if(k==='evanescia')rGain(s,5+(eidOf(fx,'evanescia')>=1?10:0),t);
+    if(k!=='trailblazer')tbA3=true;
+    if(k==='pearl'&&lcOf(fx,'pearl'))eGain(s,10,true);
+    if(k==='waven'){
+      wavElTotal++;
+      if(inAha&&(allIn||(wEid>=6&&wavElTotal>2))){if(zeal>0)mark(t,`웨이브 [올인!] → [열의] ${Math.round(zeal)} 전부 소모`,'wavAllIn');zeal=0;allIn=false;}
+      if(lcOf(fx,'waven')){if(!wind){wind=true;setPct(s,'wind',24,t);mark(t,'어벤츄린 웨이브 파도타기 [바람길]: 속도 +24%','wind');}
+        wavElCount++;if(wavElCount%3===0)spGain(1);}
+      if(wEid>=2)zealGain(4,t);
+    }
+    if(k==='yaoguang')spGain(1);
+    if(k==='sparxie')thrill=Math.min(THR_MAX,thrill+2); // 환락 스킬: 킬링 포인트 +2
+    if(k==='aeon_aha')wpGain(1,t);
+    if(k==='silverwolf999'){if(!swState)hiddenGain(15,t); // [무적 플레이어] 중에는 히든 +15 대신 피해 효과로 바뀜
+      if(agg>=20-1e-9)hiddenGain(20,t);if(agg>=40-1e-9)hiddenGain(20,t);boxP=1;}
+  }
+  // ---- 아하 타임 ----
+  function ahaAct(t,o){
+    const rec=aha.ev[aha.ev.length-1];if(rec){rec.pre=snap();rec.n=aha.ev.length-1;rec.agg=o.fixed!=null?o.fixed:laugh;}
+    const agg=o.fixed!=null?o.fixed:laugh;
+    inAha=true;elOrder.forEach(s=>castElation(s,t,agg));inAha=false;
+    CTX='아하 타임 종료'+(o.src?` (${o.src})`:'');
+    if(o.consume!==false){const used=laugh;laugh=0;if(manTurns>0&&used>0)laughGain(used*0.1,t);}
+    elOrder.forEach(s=>rGain(s,agg,t));
+    laughGain(nEl,t); // 공통: 아하 타임 종료 시 환락 캐릭터 1명당 웃음 포인트 +1
+    armed40=true;
+    if(aeonS&&laugh>=40-1e-9){armed40=false;wpGain(1,t);}
+    if(spxS&&eidOf(fx,'sparxie')>=1)laughGain(5,t);
+    if(spxS&&eidOf(fx,'sparxie')>=2){thrill=Math.min(THR_MAX,thrill+2);queue.push({s:spxS,src:'스파키 2돌 보너스 턴'});}
+    if(rec)rec.post=snap();
+  }
+  // ---- 캐릭터 행동 ----
+  function charAct(s,t,info){
+    const k=s.key, n=s.n++;CTX=s.u.name+' 턴 시작';const pre0=info.pre||snap();
+    if(aeonS&&marked&&wTgt===s)wpGain(1,t); // 「환락」의 사도: 턴 시작 시 원력 +1
+    if(s===aeonS&&manTurns>0&&!info.extra)setMan(manTurns-1,t); // 보너스 턴은 턴 수를 소모하지 않음
+    if(pearlS){if(s===pearlS)pearlTalentR=0;else if(pearlTalentR<50){pearlTalentR+=5;rGain(pearlS,5,t);}}
+    let act=k==='silverwolf999'&&swState?'swenh':chosenAct(k,n), fb=false;
+    if(act==='skill'&&(sp<1||(k==='aeon_aha'&&!wTgt))){act='basic';fb=sp<1?'SP 부족':'전투 스킬 대상 없음';}
+    const evRec={t,seq:SEQ++,act,n,fb,extra:!!info.extra,src:info.src||'',pre:pre0};s.ev.push(evRec);
+    CTX=s.u.name+' '+({spx:'전투 스킬 (함정)',swenh:'강화 일반 공격'}[act]||ACT_NAME[act]||'')+(info.extra?' (보너스 턴)':'');
+    if(k==='aeon_aha'){
+      if(act==='skill'){spSpend(1,t);spGain(1);marked=true;attackBy(s,t);allyAct(s,t); // 전투 스킬 추가 공격 (웨이브 +1)
+
+        const lvl=parseInt((state.chars.find(c=>c.key==='aeon_aha')||{}).sig)||0;
+        if(lvl>0&&n>=aeonLcCd){laughGain(10,t);aeonLcCd=n+2;}}
+      else spGain(1);
+      attackBy(s,t);wpGain(1,t);
+    }else if(k==='pearl'){spGain(1);eGain(s,30);attackBy(s,t);evRec.ph=pearlHold;evRec.pc=pearlCap();}
+    else if(k==='waven'){
+      if(act==='skill'){spSpend(1,t);eGain(s,30);laughGain(4,t);wavA3=0;zealGain(4,t);}else{spGain(1);eGain(s,20);}
+      if(wUltTurns>0&&!info.extra){wUltTurns--;if(wUltTurns===0){setPct(s,'ult',0,t);mark(t,'어벤츄린 웨이브 필살기 속도 버프 종료','wavenEnd');}}
+    }else if(k==='yaoguang'){
+      if(act==='skill'){spSpend(1,t);eGain(s,30);laughGain(3,t);}else{spGain(1);eGain(s,30);laughGain(3,t);attackBy(s,t);}
+    }else if(k==='trailblazer'){
+      if(act==='skill'){spSpend(1,t);eGain(s,30);rGain(s,20+(tbA3?2:0),t);tbA3=false;if(eidOf(fx,'trailblazer')>=1)tbE1=Math.min(3,tbE1+1);}else{spGain(1);eGain(s,20);}
+      eGain(s,10,true);laughGain(3,t);attackBy(s,t);
+    }else if(k==='evanescia'){
+      if(act==='skill'){spSpend(1,t);laughGain(10,t);eGain(s,30);}else{spGain(1);eGain(s,20);}attackBy(s,t);
+    }else if(k==='sparxie'){
+      {let traps=0,sup=0,S=3,N=25,thUsed=0;
+        while((sp>=1||thrill>=1)&&traps<20){
+          if(thrill>=1){thrill--;thUsed++;if(swState&&heldR(swS)>0){boxAcc+=boxP;if(boxAcc>=1-1e-9){boxAcc-=1;boxP*=0.2;boxEffect(t);}}} // 킬링 포인트 먼저 소모 (SP 소모로 간주)
+          else spSpend(1,t);
+          traps++;
+          const cap=gFirst?3:7;let hit=false;
+          if(S>0){if(gPity+1>=cap)hit=true;else{gAcc+=S/(S+N);if(gAcc>=1-1e-9){gAcc-=1;hit=true;}}}
+          if(hit){S--;sup++;gPity=0;gFirst=false;laughGain(2+(manTurns>0?Math.min(aE2?10:8,Math.floor(heldR(s)/10+1e-9)):0),t);spGain(2);}else{N--;gPity++;laughGain(1,t);}}
+        evRec.traps=traps;evRec.sup=sup;evRec.th=thUsed;
+        spGain(1);eGain(s,40);
+      }
+      attackBy(s,t);
+    }else if(k==='silverwolf999'){
+      if(act==='swenh'){swUses--;for(let i=0;i<3;i++)boxEffect(t);}
+      else if(act==='skill'){spSpend(1,t);laughGain(5,t);}else spGain(1);
+      if(act!=='skill'){swLcBasic++;if(swLcBasic>=3){swLcBasic=0;swLcReady=true;}}
+      attackBy(s,t);
+      if(swState&&swUses<=0){swState=false;hid=eidOf(fx,'silverwolf999')>=1?hid*0.2:0;mark(t,'은랑 [무적 플레이어] 종료','swEnd');}
+    }
+    allyAct(s,t);if(!info.extra)tickR(s,t);evRec.post=snap(); // 보너스 턴에는 지속 시간 감소 없음
+    runFox(t);
+    return evRec;
+  }
+  function runFox(t){let g=0;while(foxQ>0&&evS&&g++<20){foxQ--;CTX='에바네시아 [여우 선생님] 추가 공격';mark(t,'에바네시아 [여우 선생님] 추가 공격','evFox');attackBy(evS,t);allyAct(evS,t);eGain(evS,10,true);
+      if(eidOf(fx,'evanescia')>=1){castElation(evS,t,laugh);mark(t,'에바네시아 1돌: 환락 스킬 추가 발동','evE1');}}}
+  function setMan(n,t){manTurns=n;if(n<=0)pearlHold=Math.min(50,pearlHold);}
+  // ---- 필살기 ----
+  let inUlt=false;
+  function held(s){const p=(state.plan||{})[s.key];return !!(p&&p.hold&&p.hold.includes(s.n));}
+  function tryUlts(t){
+    if(inUlt)return;inUlt=true;const ctx0=CTX;
+    for(let g=0;g<40;g++){let fired=false;
+      for(const s of chars){
+        if(held(s))continue;
+        const k=s.key;CTX=s.u.name+' 필살기';const ml=marks.length;const sb=snap();
+        if(k==='aeon_aha'&&aha&&wp>=8-1e-9){wp-=8;const first=!marks.some(m=>m.who==='aeon_aha');
+          mark(t,'에이언즈 아하 필살기'+(first&&eidOf(fx,'aeon_aha')>=6?' (6돌: 아하 타임 +100%)':''),'aeon_aha',{k:s.n});
+          adv(aha,t,20);if(first&&eidOf(fx,'aeon_aha')>=6){adv(aha,t,100);laughGain(100,t);}
+          setMan(3,t);attackBy(s,t);if(fx.wpHeal)wp=Math.min(10,wp+1);fired=true;}
+        else if(k==='pearl'&&pTgt&&s.E>=90-1e-9){s.E-=90;eGain(s,5);rGain(s,20,t);
+          mark(t,`펄 필살기 → ${pTgt.u.name} 행동 게이지 +${pAdv}%${pExtra?' · 즉시 추가 턴':''}`,'pearl',{k:s.n});
+          adv(pTgt,t,pAdv);
+          if(eidOf(fx,'pearl')>=2){const others=chars.filter(o=>o!==pearlS&&o!==pTgt);others.forEach(o=>adv(o,t,pAdv));
+            if(others.length)mark(t,`펄 2돌 → ${others.map(o=>o.u.name).join('·')} 행동 게이지 +${pAdv}%`,'pearlE2');}
+          if(pExtra)queue.push({s:pTgt,src:'펄 필살기',pearl:true,mk:marks.filter(m=>m.who==='pearl'&&m.k!=null).pop()});pearlA3=true;fired=true;}
+        else if(k==='waven'&&s.E>=wCOST-1e-9){s.E-=wCOST;eGain(s,5);laughGain(6,t);zealGain(8,t);wUltTurns=4;setPct(s,'ult',30,t);
+          mark(t,'어벤츄린 웨이브 필살기: 속도 +30% (4턴)','waven',{k:s.n});fired=true;}
+        else if(k==='yaoguang'&&s.E>=180-1e-9){s.E-=180;eGain(s,5);const man=manTurns>0;if(aeonS&&man)eGain(s,aE2?30:12,true); // [환락만상] 중 필살기 후 에너지 고정 +12 (아하 2돌 +30)
+          laughGain(5+(man?10:0),t);mark(t,'효광 필살기 → 아하 보너스 턴'+(aeonS&&man?` · 에너지 +${aE2?30:12}`:''),'yaoguang',{k:s.n});
+          queue.push({aha:true,src:'효광 필살기',fixed:eidOf(fx,'yaoguang')>=1?40:20,consume:false});fired=true;}
+        else if(k==='sparxie'&&s.E>=160-1e-9){s.E-=160;eGain(s,5);
+          laughGain(2+(nEl>=3?8:nEl===2?4:2)+(eidOf(fx,'sparxie')>=4?5:0),t);thrill=Math.min(THR_MAX,thrill+(nEl>=3?4:1));attackBy(s,t); // 추가 능력 2: 필살기 킬링 포인트 1/1/4
+          mark(t,'스파키 필살기','sparxie',{k:s.n});fired=true;}
+        else if(k==='trailblazer'&&s.E>=160-1e-9){s.E-=160;eGain(s,5);laughGain(5,t);spGain(1);
+          mark(t,'환척자 필살기'+(tbTgt?` → ${tbTgt.u.name} 환락 스킬`:''),'trailblazer',{k:s.n});
+          if(tbTgt){rGain(tbTgt,10+2*tbE1,t);tbE1=0;if(tbTgt===aeonS&&manTurns>0){castElation(s,t,20);mark(t,'환척자 승격: 환락 스킬 추가 발동','tbE');}castElation(tbTgt,t,20);}fired=true;}
+        else if(k==='evanescia'&&s.E>=240-1e-9){s.E-=240;evUlts++;eGain(s,5);if(eidOf(fx,'evanescia')>=6&&(evUlts-1)%5===0)eGain(s,120,true);
+          attackBy(s,t);mark(t,'에바네시아 필살기','evanescia',{k:s.n});fired=true;}
+        else if(k==='silverwolf999'&&!swState&&hid>=swThr-1e-9){
+          const hid0=hid;hid=Math.max(0,hid-60); // 필살기 시 히든 스코어 60 소모
+          swState=true;swUses=3;stateGain=eidOf(fx,'silverwolf999')>=2?hid0:0;nextThr=120;if(eidOf(fx,'silverwolf999')>=2)s.R.forEach(r=>r.turns++); // 2돌: 버프 1턴 연장 // 2돌 스택은 소모 전 히든에서 시작
+          mark(t,`은랑 필살기 (히든 ${f1(hid0)} → 60 소모 → ${f1(hid)}) → 즉시 행동`,'silverwolf999',{k:s.n});
+          if(eidOf(fx,'silverwolf999')>=2){let stk=stateGain;while(stk>=120-1e-9){stk-=120;nextThr+=120;swUses+=1;queue.push({s,src:`은랑 2돌 · 필살기 시점 히든 ${f1(hid0)}으로 스택 시작 → 120 소모, 남은 스택 ${f1(stk)}`});}}
+          hiddenGain(20,t);
+          if(lcOf(fx,'silverwolf999')&&swLcReady){swLcReady=false;swLcBasic=0;laughGain(swLcLaugh(fx),t);}
+          adv(s,t,100);fired=true;}
+        const um=marks.slice(ml).find(m=>m.who===k&&m.k!=null); // 이번에 이 캐릭터가 쓴 필살기
+        if(um){allyAct(s,t);um.pre=sb;um.post=snap();}
+        if(um&&pearlS&&s===pTgt&&pearlA3){pearlA3=false;eGain(pearlS,90,true);mark(t,`펄 추가 능력 3: ${s.u.name} 필살기 → 펄 에너지 +90`,'pearlA3');}
+      }
+      if(!fired)break;
+    }
+    inUlt=false;CTX=ctx0;
+  }
+  function pearlGrant(P,t){ // 펄 필살기 보너스 턴 지급분: 대상의 첫 보너스 턴 시작 시 지급, 펄 보너스 턴 종료까지 유지
+    if(P.granted)return;P.granted=true;P.g0=snap();P.tmp=60*(eidOf(fx,'pearl')>=2?2:1);P.tmpR=30*(eidOf(fx,'pearl')>=2?2:1);
+    CTX=`펄 필살기 보너스 턴 (웃음 포인트 +${P.tmp})`;laughGain(P.tmp,t);rGain(P.s,P.tmpR,t,{temp:true});
+    if(P.s!==evS&&P.s!==pearlS){P.rr={amt:P.tmpR,turns:1e9,temp:true};P.s.R.push(P.rr);}
+    P.g1=snap();if(P.mk)P.mk.post=P.g1;P.turns=0;
+  }
+  function runQueue(t){
+    let g=0;
+    while(queue.length&&g++<200){let q=queue.shift();
+      // 펄 필살기 보너스 턴은 같은 캐릭터의 다른 보너스 턴(은랑 2돌 등)보다 항상 뒤
+      if(q.pearl&&queue.some(o=>!o.aha&&!o.pearl&&o.s===q.s)){queue.push(q);continue;}
+      if(q.aha){if(!aha)continue;aha.ev.push({t,extra:true,src:q.src,seq:SEQ++});ahaAct(t,{fixed:q.fixed,consume:q.consume,src:q.src});}
+      else{
+        const P=q.pearl?q:queue.find(o=>o.pearl&&o.s===q.s);
+        if(P){pearlGrant(P,t);P.turns++;}
+        const recQ=charAct(q.s,t,{extra:true,src:q.src});
+        if(q.pearl){const tmp=q.tmp,tmpR=q.tmpR,man0=manTurns>0,keep=man0?(aE2?0.2:0.1):0;laugh=Math.max(0,laugh-tmp*(1-keep));
+          if(q.rr)q.s.R=q.s.R.filter(r=>r!==q.rr);
+          const lp=man0?'쾌감':'웃음',g2=recQ.post,g0=q.g0,g1=q.g1;
+          if(q.mk)q.mk.pnote=`<b>${q.s.u.name}에게 준 보너스 턴</b>${q.turns>1?` (앞선 보너스 턴 ${q.turns-1}개 포함 ${q.turns}턴 동안 유지)`:''}<br>· 시작 시 ${lp} 포인트 +${tmp} · [${man0?'절솜감':'보상을'}] +${tmpR} 임시 지급: ${lp} ${f1(g0.laugh)} → ${f1(g1.laugh)}${g0.hid!=null?` · 은랑 히든 ${f1(g0.hid)} → ${f1(g1.hid)}`:''}<br>· 펄 보너스 턴 종료 시 회수${keep?` (${Math.round(keep*100)}% 남김)`:''}: ${lp} ${f1(g2.laugh)} → ${f1(laugh)}`;
+          if(manTurns>0&&q.s!==evS&&q.s!==pearlS)q.s.R.push({amt:tmpR*(aE2?0.2:0.1),turns:(q.s.key==='yaoguang'||q.s.key==='waven')?3:2}); // 승격: [보상을]도 10%(아하 2돌 20%) 유지
+        }}
+      tryUlts(t);runFox(t);
+    }
+  }
+  // ---- 전투 시작 ----
+  if(spxS)spGain(2);
+  if(wavenS&&lcOf(fx,'waven'))spGain(1);
+  if(ygS){eGain(ygS,30);if(lcOf(fx,'yaoguang'))eGain(ygS,15,true);}
+  if(aeonS&&aha){if(eidOf(fx,'aeon_aha')>=1)wp+=5;if(fx.wpHeal)wp+=1;}
+  laughGain(nEl,0); // 공통: 전투 시작 시 환락 캐릭터 1명당 웃음 포인트 +1
+  if(swS)laughGain(3,0);
+  if(evS)rGain(evS,20,0);
+  if(wavenS){rGain(wavenS,20,0);zealGain(2,0);} // 웨이브 비술: [보상을] 20 · [열의] 2
+  if(pearlS)rGain(pearlS,20,0);
+  if(ygS)laughGain(3,0);
+  if(aeonS&&aha)queue.push({aha:true,src:'에이언즈 아하 비술',fixed:20});
+  tryUlts(0);runQueue(0);tryUlts(0);runQueue(0);
+  let guard=0;
+  while(guard++<8000){
+    let best=null;st.forEach(s=>{if(s.next<=T+EPS&&(!best||s.next<best.next-1e-9))best=s;});
+    if(!best)break;
+    const t=best.next;best.next=t+best.iv;
+    if(best===aha){aha.ev.push({t,seq:SEQ++});ahaAct(t,{});}
+    else charAct(best,t,{});
+    tryUlts(t);runFox(t);runQueue(t);
+  }
+  const ev={};st.forEach(s=>ev[s.u.id]=s.ev);
+  return {ev,marks,wp,sp,hid};
+}
+
+function simulate(u,spd,T){return simAll(T,{[u.id]:spd}).ev[u.id]||[];}
+const countIn=(u,spd,T)=>simulate(u,spd,T).length;
+function needFor(u,k,T){
+  if(countIn(u,2000,T)<k)return Infinity;
+  let lo=0.01,hi=2000;
+  for(let j=0;j<40;j++){const m=(lo+hi)/2;if(countIn(u,m,T)>=k)hi=m;else lo=m;}
+  return hi;
+}
+
+
+// ===== 캐릭터별 설정 =====
+const EID_INFO={
+  aeon_aha:[[1,'1돌: 전투 진입 시 [원력] +5'],[2,'2돌: 승격 효과 강화 (은랑 히든 스코어 999·40% · 에바네시아 초과 240 · 스파키 최대 +10 · 효광 필살기 후 에너지 +30 · 펄 20% 유지)'],[6,'6돌: 첫 필살기 시 아하 타임 행동 게이지 +100% · 웃음 포인트 +10']],
+  pearl:[[2,'2돌: 필살기 시 다른 환락 아군도 행동 게이지 증가 · 보너스 턴 웃음 포인트 2배']],
+  trailblazer:[[1,'1돌: 전투 스킬마다 다음 필살기 대상 [보상을] +2 (최대 3스택)']],
+  waven:[[1,'1돌: [열의] 10/20/30 도달마다 [건배!] 발동'],[2,'2돌: [열의] 최대 50 · 40/50 도달 시도 [건배!] · 환락 스킬 후 [열의] +4'],[6,'6돌: 환락 스킬 2회 후 모든 환락 스킬이 [올인!] (아하 타임 밖에서는 [열의] 소모 없음)']],
+  yaoguang:[[1,'1돌: 필살기 아하 보너스 턴 웃음 포인트 40으로 고정 집계']],
+  sparxie:[[1,'1돌: 아하 타임 종료 시 웃음 포인트 +5'],[2,'2돌: 아하 타임 종료 시 보너스 턴 1개'],[4,'4돌: 필살기 웃음 포인트 +5']],
+  silverwolf999:[[1,'1돌: [무적 플레이어] 종료 시 히든 스코어 20% 유지'],[2,'2돌: [무적 플레이어] 중 히든 스코어 120마다 보너스 턴']],
+  evanescia:[[1,'1돌: [여우 선생님] 공격 후 환락 스킬 추가 발동 · 환락 스킬 [보상] +10'],[2,'2돌: 추가 능력 1·3의 [보상] 획득량 +50%/+100%'],[6,'6돌: 첫 필살기와 이후 4회마다 에너지 고정 +120']],
+};
+const LC_INFO={
+  pearl:'전용 광추 (휘묵) — 환락 스킬마다 에너지 고정 +10',
+  waven:'전용 광추 (파도타기) — 첫 환락 스킬부터 속도 +24% · 전투 시작·환락 스킬 3회마다 SP +1',
+  yaoguang:'전용 광추 (타개) — 에너지 회복 효율 +12% · 전투 시작 에너지 고정 +15',
+  sparxie:'전용 광추 (이목) — SP 최대치 환락 1명당 +1 (최대 +3)',
+  silverwolf999:'전용 광추 (확실한 승리) — 필살기 시 웃음 포인트 +20 (일반 공격 3회마다 재사용)',
+  evanescia:'전용 광추 (사색) — 에너지 회복 효율 +20.8% (+10% · 초과 최대치 360 → +10.8%)',
+};
+const ULT_COLOR={evanescia:'#ff9ecf',aeon_aha:'#c58bff',pearl:'#5fd4ff',waven:'#ffb35f',yaoguang:'#7fe3ff',sparxie:'#ff8a5f',trailblazer:'#ffe066',silverwolf999:'#b9a8ff'};
+function cycOf(t){return t<=FC()+EPS?0:Math.ceil((t-FC()-EPS)/100);}
+function renderSettings(marks,T){
+  const fx=fxState(), act=active(), box=document.getElementById('setBox');
+  if(!act.length){box.innerHTML='<div class="note">캐릭터를 넣으면 설정이 나와요.</div>';box.dataset.h='';return;}
+  const tOpts=(self,val,none)=>`<option value="-1">${none}</option>`+act.filter(c=>c.key!==self).map(c=>`<option value="${c.i}"${num(val)===c.i?' selected':''}>${c.name}</option>`).join('');
+  let h='';
+  act.forEach(c=>{const k=c.key;if(k==='custom')return;
+    const er=(fx.er||{})[k]||{};
+    let body='';
+    if(k==='aeon_aha'){body+=`<label class="f">전투 스킬 대상 <select data-fx="wpTarget" style="width:150px">${tOpts(k,fx.wpTarget,'없음 (일반 공격만)')}</select></label>
+      <label class="chk"><input type="checkbox" data-fx="wpHeal"${fx.wpHeal?' checked':''}> 동료 힐·실드 받음 [원력] +1 <span class="note">— 전투 시작·필살기 직후</span></label>
+      <div class="note">[원력] 8 도달 시 필살기 (최대 10) · 웃음 포인트 40 도달 시 +1 (아하 턴마다 다시 가능)</div>`;}
+    if(k==='pearl')body+=`<label class="f">필살기 대상 <select data-fx="pearlTgt" style="width:150px">${tOpts(k,fx.pearlTgt,'선택 안 함')}</select></label>`;
+    if(k==='trailblazer')body+=`<label class="f">필살기 대상 <select data-fx="tbTgt" style="width:150px">${tOpts(k,fx.tbTgt,'선택 안 함')}</select></label>`;
+    if(k==='evanescia')body+=`<div class="note">에너지 240에서 필살기 (240 소모, 최대 480) · 시작 에너지 240 · [보상] 획득 = 같은 양 에너지 · 누적 에너지 240마다 [여우 선생님]</div>`;
+    if(k==='waven')body+=`<label class="f">필살기 에너지 <input type="number" data-fx="wavCost" min="1" step="5" value="${num(fx.wavCost)||130}"></label>`;
+    if(k==='silverwolf999'){const thr=Math.max(60,num(fx.swUlt)||60);body+=`<label class="f">필살기 사용 히든 스코어 <input type="number" data-fx="swUlt" min="60" max="999" step="10" value="${thr}"></label>
+      <div class="note">60 이상에서 사용 가능 · 최대 300 (에이언즈 아하 [환락만상] 중 360, 에이언즈 아하 2돌이면 999)</div>`;}
+    if(k==='silverwolf999'){const v=lcOf(fx,k)?lcS(fx,k):0;body+=`<label class="f">전용 광추 (확실한 승리) <select data-lcs="${k}" style="width:150px">${[0,1,2,3,4,5].map(i=>`<option value="${i}"${v===i?' selected':''}>${i?`${i}중첩 (웃음 +${[20,25,30,35,40][i-1]})`:'없음'}</option>`).join('')}</select></label><div class="note">필살기 시 웃음 포인트 획득 · 일반 공격 3회마다 재사용</div>`;}
+    else if(LC_INFO[k])body+=`<label class="chk"><input type="checkbox" data-lc="${k}"${lcOf(fx,k)?' checked':''}> ${LC_INFO[k]}</label>`;
+    if(cfgOf(k).energy)body+=`<div class="row" style="gap:6px;margin-top:4px"><label class="chk"><input type="checkbox" data-er="${k}|rope"${er.rope?' checked':''}> 에너지 효율 매듭 +19.4%</label><label class="chk"><input type="checkbox" data-er="${k}|orn"${er.orn?' checked':''}> 장신구 +5%</label></div>
+      <label class="f">기타 에너지 회복 효율 % <input type="number" data-er="${k}|other" step="0.1" value="${er.other||0}"></label>`;
+    if(EID_INFO[k]){const e=eidOf(fx,k);body+=`<label class="f">성혼 <select data-eid="${k}" style="width:90px">${[0,1,2,3,4,5,6].map(v=>`<option value="${v}"${e===v?' selected':''}>${v}돌</option>`).join('')}</select></label>
+      <div class="note">${EID_INFO[k].map(([lv,txt])=>`<div style="${e>=lv?'color:var(--ok)':''}">${e>=lv?'✓ ':''}${txt}</div>`).join('')}</div>`;}
+    body+=`<div data-res="${k}" style="margin-top:6px"></div>`;
+    h+=`<div class="stat"><div style="font-weight:700;margin-bottom:4px"><span class="dot" style="background:${COLORS[c.i]}"></span>${c.name}</div>${body}</div>`;
+  });
+  if(box.dataset.h!==h){box.innerHTML=`<div class="fxgrid">${h}</div>`;box.dataset.h=h;}
+  act.forEach(c=>{const r=box.querySelector(`[data-res="${c.key}"]`);if(!r)return;
+    const ms=marks.filter(m=>m.t<=T+EPS&&m.who===c.key);
+    if(c.key==='pearl'&&num(fx.pearlTgt)<0){r.innerHTML='<span class="note">필살기 대상을 고르면 계산돼요.</span>';return;}
+    const fox=c.key==='evanescia'?marks.filter(m=>m.t<=T+EPS&&m.who==='evFox').length:0;
+    r.innerHTML=(fox?`<div class="note">[여우 선생님] ${fox}회</div>`:'')+(ms.length?`<b>필살기 ${ms.length}회</b> <div class="chips">${ms.map(m=>`<span class="chip" style="border-color:${ULT_COLOR[c.key]||'#888'};padding-right:10px">${f1(m.t)} AV · ${cycOf(m.t)}사이클</span>`).join('')}</div>`:`<span class="note">${T} AV 안에 필살기를 쓰지 못해요.</span>`);});
+}
+function bindSettings(){
+  const box=document.getElementById('setBox');
+  const fx=()=>fxState();
+  box.addEventListener('change',e=>{const el=e.target;
+    if(el.dataset.fx){const v=el.type==='checkbox'?el.checked:(el.tagName==='SELECT'?parseInt(el.value):el.value);fx()[el.dataset.fx]=v;update();}
+    else if(el.dataset.lc){const f=fx();f.lc=f.lc||{};f.lc[el.dataset.lc]=el.checked;update();}
+    else if(el.dataset.er){const [k,p]=el.dataset.er.split('|');const f=fx();f.er=f.er||{};f.er[k]=f.er[k]||{};f.er[k][p]=el.type==='checkbox'?el.checked:el.value;update();}
+    else if(el.dataset.lcs){const f=fx();const v=parseInt(el.value)||0;f.lc=f.lc||{};f.lc[el.dataset.lcs]=v>0;f.lcS=f.lcS||{};if(v>0)f.lcS[el.dataset.lcs]=v;update();}
+    else if(el.dataset.eid){const f=fx();f.eid=f.eid||{};f.eid[el.dataset.eid]=parseInt(el.value);update();}
+  });
+  box.addEventListener('input',e=>{const el=e.target;if(el.type!=='number')return;
+    if(el.dataset.fx){fx()[el.dataset.fx]=el.value;update();}
+    else if(el.dataset.er){const [k,p]=el.dataset.er.split('|');const f=fx();f.er=f.er||{};f.er[k]=f.er[k]||{};f.er[k][p]=el.value;update();}});
+}
+
+// ===== 행동 선택 수직선 =====
+let PICK=null; // {key, n} 또는 {ult:key, k}
+function resHtml(e,lab){if(!e||!e.post)return '';const a=e.pre||e.post,b=e.post;
+  const td='padding:3px 6px;text-align:right;font-variant-numeric:tabular-nums',th='padding:3px 6px;text-align:left;color:#a29dc4;font-weight:400';
+  const fmt=(v,i)=>i?String(Math.round(v)):f1(v);
+  const dl=(x,y,i)=>{const d=i?Math.round(y)-Math.round(x):Math.round((y-x)*10)/10;return d===0?'<span style="color:#6f6a94">–</span>':`<span style="color:${d>0?'#5fe3a1':'#ff8a8a'}">${d>0?'+':''}${fmt(d,i)}</span>`;};
+  const row=(n,x,y,i)=>`<tr><th style="${th}">${n}</th><td style="${td}">${fmt(x,i)}</td><td style="${td};font-weight:700">${fmt(y,i)}</td><td style="${td}">${dl(x,y,i)}</td></tr>`;
+  let h=`<div style="width:100%;margin-top:8px;padding:8px;border-radius:10px;background:#181530;font-size:12.5px">`;
+  h+=`<table style="width:100%;border-collapse:collapse"><tr><th style="${th}"></th><th style="${th};text-align:right">전</th><th style="${th};text-align:right">후</th><th style="${th};text-align:right">변화</th></tr>`;
+  h+=row('SP',a.sp,b.sp,true)+row(b.man?'쾌감 포인트':'웃음 포인트',a.laugh,b.laugh);
+  if(b.hid!=null)h+=row('은랑 히든',a.hid,b.hid);
+  if(b.th!=null)h+=row('스파키 킬링',a.th,b.th,true);
+  if(b.R.length){const am=Object.fromEntries((a.R||[]).map(r=>[r.name,r.v]));
+    h+=`<tr><th colspan="4" style="${th};padding-top:10px">${b.man?'[절솜감]':'[보상을]'} 보유</th></tr>`;
+    b.R.forEach(r=>{h+=row(r.name+(r.cap?` <span style="color:#6f6a94">(최대 ${r.cap})</span>`:''),am[r.name]!=null?am[r.name]:r.v,r.v);});
+  }
+  h+=`</table>`;
+  return h+`<div class="note" style="font-size:11px;margin:6px 6px 0">${lab||'행동 직전 → 직후 · 이어지는 필살기·보너스 턴은 해당 줄에서'}</div></div>`;}
+const PX_AV=2.6, PADL=6;
+function renderPlan(T,SIM,sims){
+  const box=document.getElementById('planBox');if(!box)return;
+  const lanes=sims.filter(s=>s.u.id!=='aha'||(s.ev&&s.ev.length));
+  const W=Math.max((box.clientWidth||600)-2,Math.round(T*PX_AV)+40);
+  const x=av=>PADL+16+(W-PADL-32)*Math.min(av,T)/T;
+  const TOP=22;
+  const bounds=[0];for(let b=FC();b<T+EPS;b+=100)bounds.push(b);if(bounds[bounds.length-1]<T-EPS)bounds.push(T);
+  const L=lanes.map(({u,ev})=>{const ck=u.id!=='aha'?u.key:null;const its=(ev||[]).filter(e=>e.t<=T+EPS).map(e=>({e,cx:x(e.t)}));
+    const rowEnd=[];its.forEach(it=>{let r=0;while(rowEnd[r]!==undefined&&it.cx-rowEnd[r]<24)r++;rowEnd[r]=it.cx;it.r=r;});
+    const ums=ck?SIM.marks.filter(m=>m.who===ck&&m.t<=T+EPS):[];
+    return {u,ck,its,ums,h:18+Math.max(1,rowEnd.length)*25+6};});
+  let yy=TOP;L.forEach(l=>{l.y0=yy;yy+=l.h;});
+  const H=yy+18;
+  let sv=`<svg width="${W}" height="${H}" id="planSvg" style="display:block;touch-action:manipulation">`;
+  for(let i=0;i<bounds.length-1;i++){sv+=`<rect x="${x(bounds[i])}" y="0" width="${x(bounds[i+1])-x(bounds[i])}" height="${H}" fill="${i%2?'#1f1b38':'#262145'}"/>`;
+    sv+=`<text x="${(x(bounds[i])+x(bounds[i+1]))/2}" y="14" fill="#ece9ff" font-size="11.5" font-weight="700" text-anchor="middle">${i}사이클</text>`;}
+  bounds.forEach(b=>{sv+=`<line x1="${x(b)}" x2="${x(b)}" y1="18" y2="${H-14}" stroke="#5a5490" stroke-dasharray="4 3"/><text x="${x(b)}" y="${H-3}" fill="#a29dc4" font-size="10" text-anchor="middle">${f1(b).replace('.0','')}</text>`;});
+  L.forEach(({u,ck,its,ums,y0,h})=>{
+    sv+=`<line x1="${x(0)}" x2="${x(T)}" y1="${y0+h-2}" y2="${y0+h-2}" stroke="${u.color}" opacity=".25"/>`;
+    ums.forEach(m=>{const cx=x(m.t),cy=y0+9;const sel=PICK&&PICK.ult===ck&&PICK.k===m.k;
+      sv+=`<g data-ult="${ck}|${m.k}" style="cursor:pointer"><path d="M${cx} ${cy-8} l8 8 l-8 8 l-8 -8z" fill="${ULT_COLOR[ck]||'#ffcc66'}" stroke="${sel?'#fff':'#0f0d1a'}" stroke-width="${sel?2:1}"/></g>`;});
+    its.forEach(({e,cx,r})=>{const cy=y0+18+r*25+12;
+      const lbl=u.id==='aha'?'★':(ACT_SHORT[e.act]||'·');
+      const sel=ck?(PICK&&PICK.key===ck&&PICK.n===e.n):(PICK&&PICK.key==='aha'&&PICK.n===e.n);
+      const changed=ck&&state.plan&&state.plan[ck]&&state.plan[ck].a&&state.plan[ck].a[e.n]!==undefined;
+      sv+=`<g data-act="${ck||'aha'}|${e.n}" style="cursor:pointer"><circle cx="${cx}" cy="${cy}" r="11" fill="${e.extra?'#0f0d1a':u.color}" stroke="${sel?'#fff':(e.fb?'#ff6b7a':u.color)}" stroke-width="${sel?3:2}"/><text x="${cx}" y="${cy+4.5}" fill="${e.extra?u.color:'#0f0d1a'}" font-size="11.5" font-weight="800" text-anchor="middle">${lbl}</text>${changed?`<circle cx="${cx+9}" cy="${cy-9}" r="3" fill="#fff"/>`:''}</g>`;});
+  });
+  sv+='</svg>';
+  const legend=lanes.map(({u})=>`<span style="margin-right:10px;white-space:nowrap"><span class="dot" style="background:${u.color}"></span>${u.name}</span>`).join('');
+  let pick='';
+  if(PICK&&PICK.key&&PICK.key!=='aha'){const c=active().find(a=>a.key===PICK.key);const s=sims.find(o=>o.u.key===PICK.key);const e=s&&s.ev.find(v=>v.n===PICK.n);
+    if(c&&e){const opts=cfgOf(c.key).acts;const cur=chosenAct(c.key,e.n);
+      pick=`<div class="picker"><b>${c.name} ${e.n+1}번째 행동</b> <span class="note">${Math.round(e.t)} AV · ${cycOf(e.t)}사이클${e.extra?' · 보너스 턴':''}</span>${e.extra&&e.src?`<div style="width:100%" class="note">출처: ${e.src}</div>`:''}<div style="width:100%"></div>`;
+      if(e.act==='swenh')pick+=`<span class="note">[무적 플레이어] 중에는 강화 일반 공격으로 고정이에요.</span>`;
+      else if(opts.length>1)pick+=opts.map(o=>`<button class="btn${cur===o?' primary':''}" data-setact="${o}">${ACT_NAME[o]}</button>`).join('');
+      else pick+=`<span class="note">${ACT_NAME[opts[0]]}로 고정이에요.</span>`;
+      if(e.fb)pick+=`<div style="width:100%;color:var(--bad);font-size:12.5px">${e.fb} → 일반 공격으로 계산</div>`;
+      if(e.pnote)pick+=`<div style="width:100%;font-size:12.5px;color:var(--warn)">${e.pnote}</div>`;
+      if(e.ph!=null)pick+=`<div style="width:100%" class="note">행동 시점 펄 [훌륭한 솜씨에는 보상을] 보유 ${f1(e.ph)} / ${e.pc}</div>`;
+      if(e.traps!=null)pick+=`<div style="width:100%" class="note">함정 ${e.traps}회 (슈퍼 선물 ${e.sup}회${e.th?` · 킬링 포인트 ${e.th}개 사용`:''})</div>`;
+      pick+=resHtml(e);
+      pick+=` <button class="btn" data-close>닫기</button></div>`;}
+  }else if(PICK&&PICK.key==='aha'){const s=sims.find(o=>o.u.id==='aha');const e=s&&s.ev[PICK.n];
+    if(e)pick=`<div class="picker"><b>아하 타임</b> <span class="note">${Math.round(e.t)} AV · ${cycOf(e.t)}사이클${e.extra?' · 보너스 턴':''}${e.agg!=null?` · 집계 ${f1(e.agg)}`:''}</span>${e.extra&&e.src?`<div style="width:100%" class="note">출처: ${e.src}</div>`:''}${resHtml(e)} <button class="btn" data-close>닫기</button></div>`;
+  }else if(PICK&&PICK.ult){const c=active().find(a=>a.key===PICK.ult);
+    const um=SIM.marks.find(m=>m.who===PICK.ult&&m.k===PICK.k);let ex='';
+    if(um){const i0=SIM.marks.indexOf(um);for(let i=i0+1;i<SIM.marks.length;i++){const m=SIM.marks[i];if(m.t!==um.t||m.k!=null)break;ex+=`<div>· ${m.name}</div>`;}}
+    pick=`<div class="picker"><b>${c?c.name:''} 필살기</b>${um?` <span class="note">${Math.round(um.t)} AV</span>`:''}<div style="width:100%"></div>${um?`<div style="width:100%;font-size:12.5px">${um.name}${ex}</div>`:''}${um&&um.pnote?`<div style="width:100%;font-size:12.5px;color:var(--warn)">${um.pnote}</div>`:''}${um?resHtml(um,um.pnote?'필살기 직전 → 보너스 턴 시작 지급 직후':'필살기 직전 → 직후'):''}<button class="btn primary" data-hold>다음 행동 뒤로 미루기</button> <button class="btn" data-close>닫기</button></div>`;}
+  const holds=[];active().forEach(c=>{const p=(state.plan||{})[c.key];if(p&&p.hold)p.hold.forEach(k=>holds.push({c,k}));});
+  const nChanged=active().reduce((a,c)=>a+Object.keys(((state.plan||{})[c.key]||{}).a||{}).length,0);
+  const chips=holds.length?`<div class="chips">${holds.map(({c,k})=>`<span class="chip" style="border-color:${ULT_COLOR[c.key]||'#888'}">${c.name} 필살기 미룸 (${k}번째 행동 뒤 → ${k+1}번째 행동 뒤) <button data-unhold="${c.key}|${k}" aria-label="삭제">✕</button></span>`).join('')}</div>`:'';
+  const view=state.planView||'order';
+  const SHORT={aeon_aha:'에이언즈 아하',pearl:'펄',waven:'웨이브',evanescia:'에바',silverwolf999:'은랑',trailblazer:'개척자',sparxie:'스파키',yaoguang:'효광'};
+  const sn=u=>u.id==='aha'?'아하 타임':(SHORT[u.key]||String(u.name||'').slice(0,3));
+  let ordH='';
+  if(view==='order'){
+    const items=[];
+    lanes.forEach(({u,ev})=>(ev||[]).forEach(e=>{if(e.t<=T+EPS)items.push({t:e.t,seq:e.seq||0,u,e});}));
+    SIM.marks.filter(m=>m.t<=T+EPS&&m.k!=null&&active().some(c=>c.key===m.who)).forEach(m=>items.push({t:m.t,seq:m.seq||0,ult:m}));
+    items.sort((a,b)=>a.t-b.t||a.seq-b.seq);
+    const AL={skill:'전투 스킬',basic:'일반 공격',enh:'강화 일반 공격',swenh:'강화 일반 공격',spx:'전투 스킬 · 함정'};
+    let no=0,cyc=-1,lastT=null,cnt={};items.forEach(it=>{if(!it.ult){const c=cycOf(it.t);cnt[c]=(cnt[c]||0)+1;}});
+    items.forEach(it=>{const c=cycOf(it.t);
+      if(c!==cyc){if(cyc>=0)ordH+='</div>';cyc=c;lastT=null;const lo=c===0?0:FC()+(c-1)*100,hi=c===0?FC():FC()+c*100;
+        ordH+=`<div class="q-sec"><b>${c}사이클</b><span>${Math.round(lo)}–${Math.round(Math.min(hi,T))} AV</span><em>${cnt[c]||0}회</em></div><div class="q-grp">`;}
+      const tr=Math.round(it.t),same=lastT===tr;lastT=tr;
+      if(it.ult){const ck=it.ult.who,cu=active().find(a=>a.key===ck);const sel=PICK&&PICK.ult===ck&&PICK.k===it.ult.k;
+        ordH+=`<div class="q-ult${sel?' sel':''}" data-ult="${ck}|${it.ult.k}" style="--c:${ULT_COLOR[ck]||'#ffcc66'}"><span class="q-dia"></span><span class="q-ulttx"><b>${SHORT[ck]||(cu?cu.name:'')}</b> 필살기</span><span class="q-t${same?' same':''}">${tr}</span></div>`;
+        if(sel)ordH+=`<div class="q-pick">${pick}</div>`;return;}
+      no++;const u=it.u,e=it.e,ck=u.id!=='aha'?u.key:'aha';
+      const sel=PICK&&PICK.key===ck&&PICK.n===e.n;
+      const changed=ck!=='aha'&&state.plan&&state.plan[ck]&&state.plan[ck].a&&state.plan[ck].a[e.n]!==undefined;
+      const ini=u.id==='aha'?'★':(SHORT[u.key]||String(u.name||'?')).slice(0,1);
+      let act=u.id==='aha'?(e.agg!=null?`집계 ${Math.round(e.agg)}`:'아하 타임'):(AL[e.act]||ACT_NAME[e.act]||'');
+      if(e.act==='spx'&&e.traps!=null)act+=` ${e.traps}회`;
+      ordH+=`<div class="q-row${e.extra?' bonus':''}${sel?' sel':''}" data-act="${ck}|${e.n}" style="--c:${u.color}">
+        <span class="q-no">${no}</span><span class="q-av">${ini}</span>
+        <span class="q-main"><span class="q-name">${sn(u)}${e.extra?'<i class="q-tag">보너스</i>':''}${changed?'<i class="q-tag ch">변경</i>':''}</span><span class="q-act${e.fb?' fb':''}">${e.fb?e.fb+' → 일반 공격':act}</span></span>
+        <span class="q-t${same?' same':''}">${tr}</span></div>`;
+      if(sel)ordH+=`<div class="q-pick">${pick}</div>`;});
+    if(cyc>=0)ordH+='</div>';
+  }
+  const ordCss=`<style>
+  #planOrder{max-height:620px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel);-webkit-overflow-scrolling:touch}
+  #planOrder .q-sec{position:sticky;top:0;z-index:2;display:flex;align-items:baseline;gap:8px;padding:9px 14px 7px;background:rgba(26,23,48,.96);backdrop-filter:blur(4px);border-bottom:1px solid var(--line);font-size:13px}
+  #planOrder .q-sec span{color:var(--muted);font-size:12px}#planOrder .q-sec em{margin-left:auto;font-style:normal;color:var(--muted);font-size:12px}
+  #planOrder .q-grp{padding:4px 0}
+  #planOrder .q-row{display:flex;align-items:center;gap:10px;padding:7px 14px;cursor:pointer;position:relative}
+  #planOrder .q-row:active,#planOrder .q-ult:active{background:var(--panel2)}
+  #planOrder .q-row.sel,#planOrder .q-ult.sel{background:var(--panel2)}
+  #planOrder .q-row.bonus{padding-left:26px}
+  #planOrder .q-row.bonus::before{content:"";position:absolute;left:16px;top:6px;bottom:6px;width:2px;border-radius:2px;background:var(--warn);opacity:.7}
+  #planOrder .q-no{width:20px;text-align:right;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+  #planOrder .q-av{width:30px;height:30px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;background:var(--c);color:#14111f;box-shadow:0 0 0 2px rgba(255,255,255,.04)}
+  #planOrder .q-row.bonus .q-av{background:transparent;color:var(--c);box-shadow:inset 0 0 0 2px var(--c)}
+  #planOrder .q-main{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.25}
+  #planOrder .q-name{font-size:14px;font-weight:600;display:flex;align-items:center;gap:5px}
+  #planOrder .q-act{font-size:12px;color:var(--muted)}#planOrder .q-act.fb{color:var(--bad)}
+  #planOrder .q-tag{font-style:normal;font-size:10.5px;font-weight:700;padding:0 6px;border-radius:99px;background:rgba(255,204,102,.15);color:var(--warn)}
+  #planOrder .q-tag.ch{background:rgba(255,255,255,.1);color:var(--text)}
+  #planOrder .q-t{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);min-width:34px;text-align:right}
+  #planOrder .q-t.same{color:#5f5a86;font-weight:500}
+  #planOrder .q-ult{display:flex;align-items:center;gap:10px;padding:4px 14px 4px 44px;cursor:pointer;font-size:12.5px;color:var(--muted)}
+  #planOrder .q-dia{width:11px;height:11px;transform:rotate(45deg);background:var(--c);border-radius:2px;flex:none;margin:0 9px 0 9px}
+  #planOrder .q-ulttx{flex:1}#planOrder .q-ulttx b{color:var(--c)}
+  #planOrder .q-pick{padding:0 12px 8px}#planOrder .q-pick .picker{margin-top:2px;background:var(--bg)}
+  </style>`;
+  const viewBtns=`<div style="margin-bottom:8px"><button class="btn${view==='order'?' primary':''}" data-view="order">순서대로 보기</button> <button class="btn${view==='lane'?' primary':''}" data-view="lane">캐릭터별 시간축</button></div>`;
+  const help=view==='order'?`<div class="note" style="margin-bottom:6px">위에서부터 행동 순서 · 오른쪽 숫자 = AV (흐린 숫자 = 바로 위와 같은 시점) · 노란 줄 = 보너스 턴 · ◆ 필살기 (누르면 미루기) · 줄을 누르면 행동 변경·자원 확인</div>`:'';
+  box.innerHTML=ordCss+viewBtns+(view==='order'?help+`<div id="planOrder">${ordH}</div>`+`${chips}`+(nChanged||holds.length?'<div style="margin-top:8px"><button class="btn" data-planreset>행동 선택 모두 초기화</button></div>':''):'')+(view==='lane'?`<div class="note" style="margin-bottom:6px">${legend}</div>
+    <div class="note" style="margin-bottom:6px">아이콘을 누르면 행동을 바꿀 수 있어요 · 전 전투 스킬 · 평 일반 공격 · 강 강화 일반 공격 · 스 스파키 함정 턴 · ★ 아하 타임 · ◆ 필살기 (누르면 미루기) · 빈 원 = 보너스 턴 · 빨간 테두리 = SP 부족으로 일반 공격 · 흰 점 = 직접 바꾼 행동</div>
+    <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--line)" id="planScroll">${sv}</div>${pick}${chips}
+    ${nChanged||holds.length?'<div style="margin-top:8px"><button class="btn" data-planreset>행동 선택 모두 초기화</button></div>':''}`:'');
+  box.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{state.planView=b.dataset.view;PICK=null;save();update();});
+  const scr=document.getElementById('planScroll');if(scr){if(window.__planScroll)scr.scrollLeft=window.__planScroll;scr.onscroll=()=>{window.__planScroll=scr.scrollLeft;};}
+  const po=document.getElementById('planOrder');if(po){if(window.__ordScroll)po.scrollTop=window.__ordScroll;po.onscroll=()=>{window.__ordScroll=po.scrollTop;};}
+  const svg=document.getElementById('planSvg')||po;
+  if(svg)svg.addEventListener('click',ev=>{const a=ev.target.closest('[data-act]'),u=ev.target.closest('[data-ult]');
+    if(u){const [k,n]=u.dataset.ult.split('|');PICK=(PICK&&PICK.ult===k&&PICK.k===parseInt(n))?null:{ult:k,k:parseInt(n)};update();return;}
+    if(a){const [k,n]=a.dataset.act.split('|');PICK=(PICK&&PICK.key===k&&PICK.n===parseInt(n))?null:{key:k,n:parseInt(n)};update();}});
+  box.querySelectorAll('[data-setact]').forEach(b=>b.onclick=()=>{const p=planOf(PICK.key);const v=b.dataset.setact;
+    if(v===defaultAct(PICK.key,PICK.n))delete p.a[PICK.n];else p.a[PICK.n]=v;update();});
+  const hb=box.querySelector('[data-hold]');if(hb)hb.onclick=()=>{const p=planOf(PICK.ult);if(!p.hold.includes(PICK.k))p.hold.push(PICK.k);PICK=null;update();};
+  const cb=box.querySelector('[data-close]');if(cb)cb.onclick=()=>{PICK=null;update();};
+  box.querySelectorAll('[data-unhold]').forEach(b=>b.onclick=()=>{const [k,n]=b.dataset.unhold.split('|');const p=planOf(k);p.hold=p.hold.filter(v=>v!==parseInt(n));update();});
+  const pr=box.querySelector('[data-planreset]');if(pr)pr.onclick=()=>{state.plan={};PICK=null;update();};
+}
+
+window.addEventListener('resize',()=>{clearTimeout(window.__rt);window.__rt=setTimeout(update,150);});
+
+function withBuff(on,fn){const o=state.buffOn;state.buffOn=on;try{return fn();}finally{state.buffOn=o;}}
+const MODES={moc:{name:'혼돈의 기억',first:150},aa:{name:'이상중재',first:300}};
+const FC=()=>(MODES[state.mode]||MODES.moc).first;
+function totalAV(n){return n<=0?0:FC()+100*(n-1);}
+function actionsIn(spd,av,adv=0){if(spd<=0)return 0;const iv=10000/spd,first=iv*Math.max(0,1-adv/100);
+  return first>av+EPS?0:1+Math.floor((av-first)/iv+EPS);}
+// k회 행동에 필요한 속도 (전투 시작 행동 게이지 증가 adv% 반영)
+const needSpd=(k,T,adv=0)=>10000*Math.max(0,k-Math.min(adv,100)/100)/T;
+
+function ahaInfo(){
+  const k=state.coef, cs=active();
+  const aeon=cs.find(isAeon);
+  const own=state.owned||{has:false,sig:0};
+  let base,label;
+  if(aeon){base=baseSpd(aeon);label=sigBonus(aeon)?` (에이언즈 아하 기초 ${num(aeon.base)} + 전용 광추 ${parseInt(aeon.sig)}중첩 ${sigBonus(aeon)})`:' (에이언즈 아하 기초)';}
+  else if(own.has){const b=SIG_SPD[parseInt(own.sig)||0]||0;base=AEON_BASE+b;label=b?` (보유 중인 에이언즈 아하 기초 ${AEON_BASE} + 전용 광추 ${parseInt(own.sig)}중첩 ${b})`:' (보유 중인 에이언즈 아하 기초)';}
+  else{base=num(k.ahaBase);label=' (에이언즈 아하 미보유 기본값)';}
+  const pool=cs.map(c=>({name:c.name,spd:finalSpd(c)})).sort((a,b)=>b.spd-a.spd);
+  const coefs=[num(k.c1),num(k.c2),num(k.c3),num(k.c4)];
+  let spd=base, parts=[`${f1(base)}${label}`];
+  pool.slice(0,4).forEach((p,i)=>{if(coefs[i]){spd+=p.spd*coefs[i];parts.push(`${p.name} ${f1(p.spd)} × ${coefs[i]}`);}});
+  const anyElation=cs.length>0;
+  return {spd,base,pool,parts,aeon,anyElation,coefs};
+}
+
+function renderChars(){
+  const box=document.getElementById('chars');box.innerHTML='';
+  state.chars.forEach((c,i)=>{
+    const d=document.createElement('div');d.className='char'+(isAeon(c)?' aha':'');
+    const used=state.chars.filter((o,j)=>j!==i).map(o=>o.key);
+    const opts=`<option value="none"${c.key==='none'?' selected':''}>— 비어 있음 —</option>`+
+      CHAR_DB.map(o=>`<option value="${o.key}"${c.key===o.key?' selected':''}${used.includes(o.key)?' disabled':''}>${o.name}</option>`).join('')+
+      `<option value="custom"${c.key==='custom'?' selected':''}>직접 입력 (신규 환락 캐릭터)</option>`;
+    let inner=`<div class="note" style="margin-bottom:4px"><span class="dot" style="background:${COLORS[i]}"></span>${i+1}번 칸</div><select data-k="key">${opts}</select>`;
+    if(c.key!=='none'){
+      if(c.key==='custom')inner+=`<input type="text" data-k="name" value="${c.name.replace(/"/g,'&quot;')}" style="margin-top:6px">`;
+      inner+=`
+      ${c.key==='custom'?`<label class="f">기초 속도 <input type="number" data-k="base" step="1" value="${c.base}"></label>`:`<label class="f">기초 속도 <b style="color:var(--text)">${c.base}</b></label>`}
+      ${isAeon(c)?sigSlider('data-sig',parseInt(c.sig)||0):''}
+      <div class="final"><small style="color:var(--text);font-weight:700">내 속도</small><input type="number" data-k="spd" step="0.1" value="${c.spd}" style="width:110px;font-size:18px;font-weight:800"></div>
+      <div class="buffbox">
+        <label class="f">속도 버프 % <input type="number" data-k="bpct" step="0.1" value="${f1(totalPct(c))}"></label>
+        <div class="note" data-out="pctnote" style="text-align:right;margin-top:-4px"></div>
+        <div class="final" style="border:none;padding-top:0;margin-top:2px"><small>버프 후 속도</small><b data-out="buffed" style="font-size:18px;color:var(--ok)"></b></div>
+      </div>
+      <div class="final" style="border:none;padding-top:0;margin-top:2px"><small>AV</small><span data-out="av"></span></div>
+      <label class="f" style="margin-top:8px">기타 전투 시작 게이지 증가 % <input type="number" data-k="adv" min="0" max="100" step="1" value="${c.adv||0}"></label>
+      <div data-out="th"></div>`;
+    }
+    d.innerHTML=inner;
+    d.querySelector('select[data-k=key]').addEventListener('change',e=>{state.chars[i]=fromDb(e.target.value);renderChars();});
+    const sg=d.querySelector('input[data-sig]');if(sg)sg.addEventListener('input',()=>{
+      const before=sigBonus(c);c.sig=parseInt(sg.value);const diff=sigBonus(c)-before;
+      d.querySelector('.sigval').textContent=sigLabel(c.sig);
+      c.spd=Math.round((num(c.spd)+diff)*10)/10;
+      const si=d.querySelector('input[data-k=spd]');if(si)si.value=c.spd;
+      update();});
+    d.querySelectorAll('input[data-k]').forEach(inp=>{
+      inp.addEventListener('input',()=>{
+        if(inp.dataset.k==='bpct'){c.bpct=num(inp.value)-autoPct(c);}
+        else c[inp.dataset.k]=inp.type==='checkbox'?inp.checked:inp.value;
+        update();});
+    });
+    box.appendChild(d);
+  });
+  update();
+}
+
+function update(){
+  {const n=active().length,en=document.getElementById('elNote');if(en)en.textContent=n?`환락 공통 규칙 (환락 ${n}명): 전투 시작 시 웃음 포인트 +${n} · 아하 타임 종료 시마다 +${n} — 계산에 자동 반영`:'';}
+  // per-character outputs
+  document.querySelectorAll('#chars .char').forEach((el,i)=>{
+    const c=state.chars[i];
+    if(c.key==='none')return;
+    const s=finalSpd(c), set=num(c.spd);
+    const warnBase=baseSpd(c);
+    el.querySelector('[data-out=buffed]').textContent=f1(set+withBuff(true,()=>buffAmt(c)));
+    lockArea(el.querySelector('.buffbox'),!state.buffOn);
+    const pf=el.querySelector('[data-k=bpct]');if(document.activeElement!==pf)pf.value=f1(totalPct(c));
+    const pp=presetPct(), tpv=num((state.teamBuff||{}).pct);
+    const parts=[];PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))parts.push(b.name);});
+    if(tpv)parts.push('기타 +'+tpv);if(num(c.bpct))parts.push('개인 '+(num(c.bpct)>0?'+':'')+f1(num(c.bpct)));
+    el.querySelector('[data-out=pctnote]').textContent=parts.length?parts.join(' · '):'';
+    el.querySelector('[data-out=av]').textContent=s>0?f2(10000/s):'-';
+    const th=el.querySelector('[data-out=th]');
+    const w=(c.key!=='custom'&&set<warnBase)?`<div class="note" style="color:var(--bad);margin-top:4px">기초 속도(${f1(warnBase)})보다 낮아요. 입력값을 확인하세요.</div>`:'';
+    th.innerHTML=w;
+  });
+
+  // preset buffs
+  if(!state.presetBuffs)state.presetBuffs={yg:false,gx:false};
+  const pbBox=document.getElementById('presetBuffs');
+  if(!pbBox.dataset.built){
+    pbBox.innerHTML=PRESET_BUFFS.map(b=>`<label class="chk"><input type="checkbox" data-pb="${b.key}"> <b>${b.name}</b>&nbsp;<span class="note">${b.desc}</span> <span class="note" data-pbn="${b.key}"></span></label>`).join('');
+    pbBox.querySelectorAll('input').forEach(i=>i.onchange=()=>{state.presetBuffs[i.dataset.pb]=i.checked;update();});
+    pbBox.dataset.built=1;
+  }
+  PRESET_BUFFS.forEach(b=>{
+    const i=pbBox.querySelector(`[data-pb=${b.key}]`);i.checked=!!state.presetBuffs[b.key];
+    pbBox.querySelector(`[data-pbn=${b.key}]`).textContent=i.checked?pbBlocked(b):'';
+  });
+  // aha
+  const inParty=active().some(isAeon);
+  const ow=document.getElementById('owned'),wrap=document.getElementById('ownedSigWrap'),on=document.getElementById('ownedNote');
+  const orow=document.getElementById('ownedRow');
+  if(inParty){orow.style.display='none';on.style.display='none';}
+  else{orow.style.display='';on.style.display='';ow.disabled=false;ow.checked=!!(state.owned&&state.owned.has);wrap.style.display=ow.checked?'':'none';on.textContent=ow.checked?'파티에 없어도 아하 타임 기초 속도가 에이언즈 아하의 기초 속도로 적용돼요.':'미보유: 아하 타임 기초 속도 80이 적용돼요.';}
+  const a=ahaInfo();
+  const n=Math.max(1,Math.min(30,Math.round(num(state.cycles))||1));
+  const T=totalAV(n);
+  renderFx();
+  window.__AHA={base:a.base,coefs:a.coefs};
+  const B=buildUnits(a.spd,a.anyElation);
+  const units=B.units, ahaU=B.aha;
+  CUR={units,T};
+  const SIM=simAll(T);
+  const autoMarks=SIM.marks;
+  const st=document.getElementById('ahaStats');
+  if(!a.anyElation){
+    st.innerHTML=`<div class="stat"><div class="k">아하 타임</div><div class="v">-</div><div class="d">환락 캐릭터가 없으면 아하가 행동 순서에 나오지 않아요.</div></div>`;
+    document.getElementById('ahaFormula').textContent='';
+  } else {
+    const first=10000/a.spd;
+    const cT=countIn(ahaU,a.spd,T), c0=countIn(ahaU,a.spd,FC());
+    const nd=needFor(ahaU,cT+1,T), gap=Math.max(0,ceil1(nd)-a.spd);
+    const ahaEv=SIM.ev['aha']||[];
+    const inT=ahaEv.filter(e=>e.t<=T+EPS),ex=inT.filter(e=>e.extra).length,exBy={};inT.filter(e=>e.extra).forEach(e=>{const k=(e.src||'보너스').replace('에이언즈 아하 비술','비술');exBy[k]=(exBy[k]||0)+1;});
+    const exTxt=Object.entries(exBy).map(([k,v])=>`<span style="white-space:nowrap">${k} <b style="color:var(--text)">${v}회</b></span>`).join(' · ');
+    let pc=0;const perCyc=Array.from({length:n},(_,k)=>{const c=ahaEv.filter(e=>e.t<=totalAV(k+1)+EPS).length;const r=c-pc;pc=c;return `<span style="white-space:nowrap">${k}사이클 <b style="color:var(--text)">${r}회</b></span>`;}).join(' · ');
+    st.innerHTML=`
+      <div class="stat"><div class="k">아하 타임 속도${state.buffOn?' (버프 후)':''}</div><div class="v" style="color:var(--accent)">${f1(a.spd)}</div><div class="d">AV ${f2(first)}${state.buffOn?` · 버프 전 ${f1(withBuff(false,()=>ahaInfo().spd))}`:''}</div></div>
+      <div class="stat"><div class="k">${n}사이클(${T} AV) 동안 아하 타임</div><div class="v">${cT}회</div><div class="d" style="margin-top:4px">${perCyc}</div>${ex?`<div class="d" style="margin-top:4px">기본 턴 <b style="color:var(--text)">${inT.length-ex}회</b> · ${exTxt}</div>`:''}</div>
+      <div class="stat"><div class="k">다음 횟수까지</div><div class="v">${isFinite(nd)?ceil1(gap).toFixed(1):'-'}</div><div class="d">아하 타임 속도가 이만큼 더 필요${isFinite(nd)&&a.coefs[0]&&a.pool[0]?` · 1위 환락 캐릭터 기준 +${ceil1(gap/a.coefs[0]).toFixed(1)}`:''}</div></div>`;
+    document.getElementById('ahaFormula').textContent='아하 타임 속도 = '+a.parts.join(' + ')+' = '+f2(a.spd);
+  }
+
+  // action table
+  document.getElementById('totalAV').textContent=`${(MODES[state.mode]||MODES.moc).name} · 총 ${T} AV (0사이클 ${FC()} + 이후 100 × ${n-1})`;
+  let head='<tr><th>유닛</th><th>속도</th><th>AV</th>';
+  for(let k=0;k<n;k++)head+=`<th>${k}사이클</th>`;
+  head+='<th>합계</th></tr>';
+  let body='';
+  const sims=units.map(u=>({u,ev:SIM.ev[u.id]||[]}));
+  sims.forEach(({u,ev})=>{
+    let r=`<tr><td><span class="dot" style="background:${u.color}"></span>${u.name}${u.startAdv?` <span class="note">(시작 +${f1(u.startAdv)}%)</span>`:''}</td><td>${f1(u.spd)}</td><td>${u.spd>0?f2(10000/u.spd):'-'}</td>`;
+    let prev=0;
+    for(let k=0;k<n;k++){const c=ev.filter(e=>e.t<=totalAV(k+1)+EPS).length;r+=`<td>${c-prev}</td>`;prev=c;}
+    const ex=ev.filter(e=>e.extra).length;
+    r+=`<td><b>${prev}</b>${ex?` <span class="note">(추가 ${ex})</span>`:''}</td></tr>`;body+=r;
+  });
+  document.getElementById('actTable').innerHTML=head+body;
+
+  renderPlan(T,SIM,sims);
+  renderSettings(autoMarks,T);
+  // timeline
+  const tl0=[];
+  sims.forEach(({u,ev})=>ev.forEach(e=>tl0.push({t:e.t,u,extra:e.extra,src:e.src,seq:e.seq||0,act:e.act,traps:e.traps,fb:e.fb,post:e.post})));
+  (fxState().ahaMode==='manual'?B.marks:autoMarks).filter(m=>m.t<=T+EPS).forEach(m=>tl0.push({t:m.t,mark:m.name,seq:m.seq||0}));
+  tl0.sort((x,y)=>x.t-y.t||x.seq-y.seq);
+  let tl='<tr><th>#</th><th>시점 (AV)</th><th>사이클</th><th>행동</th></tr>';let no=0;
+  tl0.forEach(e=>{const cyc=e.t<=FC()+EPS?0:Math.ceil((e.t-FC()-EPS)/100);
+    if(e.mark){tl+=`<tr><td></td><td>${Math.round(e.t)}</td><td class="cyc">${cyc}</td><td style="text-align:left;color:var(--warn)">⚡ ${e.mark}</td></tr>`;return;}
+    no++;tl+=`<tr><td>${no}</td><td>${Math.round(e.t)}</td><td class="cyc">${cyc}</td><td style="text-align:left"><span class="dot" style="background:${e.u.color}"></span>${e.u.name}${e.act?` <span class="note">${ACT_NAME[e.act]||''}${e.traps!=null?` (함정 ${e.traps}회)`:''}${e.fb?` · ${e.fb}`:''}</span>`:''}${e.extra?` <span class="pill p-warn">보너스 턴 · ${e.src}</span>`:''}${e.post?`<div class="note" style="font-size:11.5px">행동 후 SP ${Math.round(e.post.sp)} · ${e.post.man?'쾌감':'웃음'} ${f1(e.post.laugh)}${e.post.hid!=null?` · 히든 ${f1(e.post.hid)}`:''}${e.post.th!=null?` · 킬링 ${Math.round(e.post.th)}`:''}</div>`:''}</td></tr>`;});
+  document.getElementById('timeline').innerHTML=tl;
+
+  // breakpoints: 라운드별 행동 횟수 / 한 번 더 행동까지 필요한 속도
+  const bn=Math.max(1,Math.min(30,Math.round(num(state.bpCycles))||1));
+  CUR={units,T:totalAV(bn)};
+  const SIMB=simAll(totalAV(bn));
+  let bp='<tr><th>유닛</th>';
+  for(let r=1;r<=bn;r++)bp+=`<th>${r}라운드<br><span style="font-weight:400">(${totalAV(r)} AV까지)</span></th>`;
+  bp+='</tr>';
+  units.forEach(u=>{
+    const ev=SIMB.ev[u.id]||[];
+    let row=`<tr><td><span class="dot" style="background:${u.color}"></span>${u.name}<br><span class="note">속도 ${f1(u.spd)}</span></td>`;
+    let prev=0;
+    for(let r=1;r<=bn;r++){
+      const Tr=totalAV(r), cum=ev.filter(e=>e.t<=Tr+EPS).length, inR=cum-prev; prev=cum;
+      const nd=needFor(u,cum+1,Tr);
+      const tgt=ceil1(nd);
+      const need=isFinite(nd)?`<span style="color:var(--warn);font-weight:700">+${ceil1(Math.max(0,tgt-u.spd)).toFixed(1)}</span> <span class="note">(${tgt.toFixed(1)})</span>`:'<span class="note">불가</span>';
+      row+=`<td><b style="font-size:15px">${inR}회</b> <span class="note">누적 ${cum}</span><br>${need}</td>`;
+    }
+    bp+=row+'</tr>';
+  });
+  CUR={units,T};
+  document.getElementById('bpTable').innerHTML=bp;
+  save();
+}
+
+
+function renderFx(){
+  const fx=fxState(), act=active();
+  const aeon=act.some(isAeon);
+  const ts=document.getElementById('fxTechState');ts.textContent=aeon?'적용 중':'파티에 없음';ts.className='pill '+(aeon?'p-ok':'p-bad');
+  const ms=document.getElementById('fxMhState');ms.textContent=aeon?'적용 중':'파티에 없음';ms.className='pill '+(aeon?'p-ok':'p-bad');
+  lockArea(document.getElementById('fxMhWrap'),!aeon);
+  const opt=(sel,val,label0)=>{const el=document.getElementById(sel);const html=`<option value="-1">${label0}</option>`+act.map(c=>`<option value="${c.i}">${c.i+1}번 ${c.name}</option>`).join('');
+    if(el.dataset.h!==html){el.innerHTML=html;el.dataset.h=html;}
+    el.value=act.some(c=>c.i===num(val))?String(num(val)):'-1';};
+  if(!fx.orns)fx.orns=[];
+  const ob=document.getElementById('fxOrn');
+  const oh=act.length?act.map(c=>`<label class="chk"><input type="checkbox" data-orn="${c.i}"> ${c.name}</label>`).join(''):'<div class="note">파티에 캐릭터가 없어요.</div>';
+  if(ob.dataset.h!==oh){ob.innerHTML=oh;ob.dataset.h=oh;ob.querySelectorAll('input').forEach(i=>i.onchange=()=>{const k=parseInt(i.dataset.orn);fx.orns=fx.orns.filter(x=>x!==k);if(i.checked)fx.orns.push(k);update();});}
+  ob.querySelectorAll('input').forEach(i=>i.checked=fx.orns.includes(parseInt(i.dataset.orn)));
+}
+
+function bindCoef(){
+  const k=state.coef;
+  ['ahaBase','c1','c2','c3','c4'].forEach(id=>{const el=document.getElementById(id);el.value=k[id];el.oninput=()=>{k[id]=el.value;update();};});
+  if(!state.owned)state.owned={has:false,sig:0};
+  const ow=document.getElementById('owned');
+  const osw=document.getElementById('ownedSigWrap');osw.innerHTML=sigSlider('id="ownedSig"',parseInt(state.owned.sig)||0,'보유 중인 에이언즈 아하의 전용 광추');
+  const os=document.getElementById('ownedSig');
+  ow.checked=state.owned.has;
+  ow.onchange=()=>{state.owned.has=ow.checked;update();};
+  os.oninput=()=>{state.owned.sig=parseInt(os.value);osw.querySelector('.sigval').textContent=sigLabel(state.owned.sig);update();};
+  if(!state.teamBuff)state.teamBuff={pct:0,flat:0};
+  const bo=document.getElementById('buffOn'),tp=document.getElementById('tPct');
+  bo.checked=!!state.buffOn;tp.value=state.teamBuff.pct;
+  bo.onchange=()=>{state.buffOn=bo.checked;update();};
+  tp.oninput=()=>{state.teamBuff.pct=tp.value;update();};
+  if(!state.mode)state.mode='moc';
+  const mr=document.getElementById('modeRow');
+  mr.innerHTML='<span class="note" style="color:var(--text)">콘텐츠</span>'+Object.entries(MODES).map(([k,m])=>`<button class="btn mode${state.mode===k?' primary':''}" data-mode="${k}">${m.name} <span class="note" style="color:inherit;opacity:.8">(0사이클 ${m.first} AV)</span></button>`).join('');
+  mr.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.mode=b.dataset.mode;mr.querySelectorAll('button').forEach(x=>x.classList.toggle('primary',x===b));update();});
+  const cy=document.getElementById('cycles');cy.value=state.cycles;cy.oninput=()=>{state.cycles=cy.value;update();};
+  const bc=document.getElementById('bpCycles');bc.value=state.bpCycles;bc.oninput=()=>{state.bpCycles=bc.value;update();};
+}
+document.getElementById('reset').onclick=()=>{state={chars:defaultChars(),coef:{...DEFAULT_COEF},cycles:3,bpCycles:3,owned:{has:false,sig:0},mode:'moc',buffOn:false,teamBuff:{pct:0},presetBuffs:{yg:false,gx:false}};state.fx=null;state.plan={};PICK=null;bindCoef();renderChars();};
+document.getElementById('resetCoef').onclick=()=>{state.coef={...DEFAULT_COEF};bindCoef();update();};
+bindCoef();bindSettings();renderChars();
+</script>
+</body>
+</html>
