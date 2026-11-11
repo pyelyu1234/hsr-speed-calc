@@ -277,6 +277,7 @@ function eidOf(fx,k){return parseInt((fx.eid||{})[k])||0;}
 function lcOf(fx,k){return !!(fx.lc||{})[k];}
 function lcS(fx,k){return Math.min(5,Math.max(1,parseInt((fx.lcS||{})[k])||1));}
 const swLcLaugh=fx=>[20,25,30,35,40][lcS(fx,'silverwolf999')-1];
+const swLcLabel=v=>v?`${v}중첩 (웃음 +${[20,25,30,35,40][v-1]})`:'미착용';
 function erOf(fx,k){const e=(fx.er||{})[k]||{};return 1+(e.rope?ROPE:0)/100+(e.orn?ORN:0)/100+num(e.other)/100+(k==='yaoguang'&&lcOf(fx,k)?0.12:0)+(k==='evanescia'&&lcOf(fx,k)?0.208:0);}
 const ORDER={pearl:104,yaoguang:116,trailblazer:120,sparxie:144,evanescia:146,waven:156,silverwolf999:999,aeon_aha:99999};
 function planOf(k){if(!state.plan)state.plan={};if(!state.plan[k])state.plan[k]={a:{},hold:[]};const p=state.plan[k];if(!p.a)p.a={};if(!p.hold)p.hold=[];return p;}
@@ -617,7 +618,7 @@ function renderSettings(marks,T){
     if(k==='waven')body+=`<label class="f">필살기 에너지 <input type="number" data-fx="wavCost" min="1" step="5" value="${num(fx.wavCost)||130}"></label>`;
     if(k==='silverwolf999'){const thr=Math.max(60,num(fx.swUlt)||60);body+=`<label class="f">필살기 사용 히든 스코어 <input type="number" data-fx="swUlt" min="60" max="999" step="10" value="${thr}"></label>
       <div class="note">60 이상에서 사용 가능 · 최대 300 (에이언즈 아하 [환락만상] 중 360, 에이언즈 아하 2돌이면 999)</div>`;}
-    if(k==='silverwolf999'){const v=lcOf(fx,k)?lcS(fx,k):0;body+=`<label class="f">전용 광추 (확실한 승리) <select data-lcs="${k}" style="width:150px">${[0,1,2,3,4,5].map(i=>`<option value="${i}"${v===i?' selected':''}>${i?`${i}중첩 (웃음 +${[20,25,30,35,40][i-1]})`:'없음'}</option>`).join('')}</select></label><div class="note">필살기 시 웃음 포인트 획득 · 일반 공격 3회마다 재사용</div>`;}
+    if(k==='silverwolf999'){const v=lcOf(fx,k)?lcS(fx,k):0;body+=`<div class="sig"><div class="sighead"><span>전용 광추 (확실한 승리)</span><b class="sigval" data-lcsv>${swLcLabel(v)}</b></div><input type="range" min="0" max="5" step="1" data-lcs="${k}" value="${v}"><div class="sigticks"><span>미착용</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div></div><div class="note">필살기 시 웃음 포인트 획득 · 일반 공격 3회마다 재사용</div>`;}
     else if(LC_INFO[k])body+=`<label class="chk"><input type="checkbox" data-lc="${k}"${lcOf(fx,k)?' checked':''}> ${LC_INFO[k]}</label>`;
     if(cfgOf(k).energy)body+=`<div class="row" style="gap:6px;margin-top:4px"><label class="chk"><input type="checkbox" data-er="${k}|rope"${er.rope?' checked':''}> 에너지 효율 매듭 +19.4%</label><label class="chk"><input type="checkbox" data-er="${k}|orn"${er.orn?' checked':''}> 장신구 +5%</label></div>
       <label class="f">기타 에너지 회복 효율 % <input type="number" data-er="${k}|other" step="0.1" value="${er.other||0}"></label>`;
@@ -643,7 +644,7 @@ function bindSettings(){
     else if(el.dataset.lcs){const f=fx();const v=parseInt(el.value)||0;f.lc=f.lc||{};f.lc[el.dataset.lcs]=v>0;f.lcS=f.lcS||{};if(v>0)f.lcS[el.dataset.lcs]=v;update();}
     else if(el.dataset.eid){const f=fx();f.eid=f.eid||{};f.eid[el.dataset.eid]=parseInt(el.value);update();}
   });
-  box.addEventListener('input',e=>{const el=e.target;if(el.type!=='number')return;
+  box.addEventListener('input',e=>{const el=e.target;if(el.dataset&&el.dataset.lcs!==undefined){const lb=el.closest('.sig')&&el.closest('.sig').querySelector('[data-lcsv]');if(lb)lb.textContent=swLcLabel(parseInt(el.value)||0);return;}if(el.type!=='number')return;
     if(el.dataset.fx){fx()[el.dataset.fx]=el.value;update();}
     else if(el.dataset.er){const [k,p]=el.dataset.er.split('|');const f=fx();f.er=f.er||{};f.er[k]=f.er[k]||{};f.er[k][p]=el.value;update();}});
 }
