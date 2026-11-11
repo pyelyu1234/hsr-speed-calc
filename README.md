@@ -1,0 +1,1 @@
+# hsr-speed-calc
