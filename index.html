@@ -122,6 +122,9 @@ a{color:var(--accent)}
         <div style="margin:8px 0;font-size:13px">에이언즈 아하 비술 <span class="note">— 전투 진입 시 아하 타임 보너스 턴 1회 ([원력] +1)</span> <span class="pill" id="fxTechState"></span></div>
         <div class="note" style="color:var(--text);margin-top:8px">환커공 착용 <span class="note">— 착용자 행동 게이지 +40% (여러 명 착용 가능)</span></div>
         <div id="fxOrn"></div>
+        <div class="note" style="color:var(--text);margin-top:10px">바커공 착용 <span class="note">— 생명의 바커 공: 에너지 회복 효율 +5%, 속도 120 이상이면 전투 시작 시 행동 게이지 +40%</span></div>
+        <div id="fxVonw"></div>
+        <div class="note" style="margin-top:4px">장신구는 한 캐릭터에 하나만 끼므로 환커공과 바커공 중 하나만 체크돼요.</div>
       </div>
     </div>
   </section>
@@ -240,7 +243,7 @@ function totalPct(c){const b=state.teamBuff||{pct:0};return num(c.bpct)+num(b.pc
 const autoPct=c=>presetPct()+num((state.teamBuff||{}).pct);
 function finalSpd(c){return num(c.spd)+buffAmt(c);}
 // ===== 행동 게이지 증가 / 추가 턴 시뮬레이션 =====
-function fxState(){if(!state.fx)state.fx={orns:[],wpTarget:-1,wpHeal:false,pearlTgt:-1,tbTgt:-1,wavCost:130,swUlt:60,lc:{},er:{},eid:{}};const f=state.fx;f.ahaMode='auto';['lc','er','eid'].forEach(k=>{if(!f[k])f[k]={};});if(!f.orns)f.orns=[];return f;}
+function fxState(){if(!state.fx)state.fx={orns:[],wpTarget:-1,wpHeal:false,pearlTgt:-1,tbTgt:-1,wavCost:130,swUlt:60,lc:{},er:{},eid:{}};const f=state.fx;f.ahaMode='auto';['lc','er','eid'].forEach(k=>{if(!f[k])f[k]={};});if(!f.orns)f.orns=[];if(!f.vonw)f.vonw=[];return f;}
 function parseTimes(str){return String(str||'').split(/[,\s]+/).map(parseFloat).filter(x=>isFinite(x)&&x>=0).sort((a,b)=>a-b);}
 const hasKey=k=>active().find(c=>c.key===k);
 function buildUnits(ahaSpd,withAha){
@@ -249,6 +252,7 @@ function buildUnits(ahaSpd,withAha){
     let sa=num(c.adv);
     if(isAeon(c))sa+=30;
     if((fx.orns||[]).includes(c.i))sa+=40;
+    if((fx.vonw||[]).includes(c.i)&&num(c.spd)>=120)sa+=40; // 바커공: 속도 120 이상 전투 시작 게이지 +40%
     return {id:'c'+c.i,slot:c.i,key:c.key,name:c.name,base:baseSpd(c),spd:finalSpd(c),color:COLORS[c.i],startAdv:Math.min(100,Math.max(0,sa)),effects:[]};
   });
   const aha={id:'aha',name:'아하 타임',spd:ahaSpd,color:COLORS[4],startAdv:0,effects:[]};
@@ -278,7 +282,7 @@ function lcOf(fx,k){return !!(fx.lc||{})[k];}
 function lcS(fx,k){return Math.min(5,Math.max(1,parseInt((fx.lcS||{})[k])||1));}
 const swLcLaugh=fx=>[20,25,30,35,40][lcS(fx,'silverwolf999')-1];
 const swLcLabel=v=>v?`${v}중첩 (웃음 +${[20,25,30,35,40][v-1]})`:'미착용';
-function erOf(fx,k){const e=(fx.er||{})[k]||{};return 1+(e.rope?ROPE:0)/100+(e.orn?ORN:0)/100+num(e.other)/100+(k==='yaoguang'&&lcOf(fx,k)?0.12:0)+(k==='evanescia'&&lcOf(fx,k)?0.208:0);}
+function erOf(fx,k){const e=(fx.er||{})[k]||{};const sl=(active().find(a=>a.key===k)||{}).i;const vw=sl!=null&&(fx.vonw||[]).includes(sl);return 1+(e.rope?ROPE:0)/100+((e.orn||vw)?ORN:0)/100+num(e.other)/100+(k==='yaoguang'&&lcOf(fx,k)?0.12:0)+(k==='evanescia'&&lcOf(fx,k)?0.208:0);}
 const ORDER={pearl:104,yaoguang:116,trailblazer:120,sparxie:144,evanescia:146,waven:156,silverwolf999:999,aeon_aha:99999};
 function planOf(k){if(!state.plan)state.plan={};if(!state.plan[k])state.plan[k]={a:{},hold:[]};const p=state.plan[k];if(!p.a)p.a={};if(!p.hold)p.hold=[];if(!p.ud)p.ud={};return p;}
 function defaultAct(k,n){if(k==='yaoguang')return n%3===2?'skill':'basic';return cfgOf(k).acts[0];}
@@ -1028,6 +1032,12 @@ function renderFx(){
   const oh=act.length?act.map(c=>`<label class="chk"><input type="checkbox" data-orn="${c.i}"> ${c.name}</label>`).join(''):'<div class="note">파티에 캐릭터가 없어요.</div>';
   if(ob.dataset.h!==oh){ob.innerHTML=oh;ob.dataset.h=oh;ob.querySelectorAll('input').forEach(i=>i.onchange=()=>{const k=parseInt(i.dataset.orn);fx.orns=fx.orns.filter(x=>x!==k);if(i.checked)fx.orns.push(k);update();});}
   ob.querySelectorAll('input').forEach(i=>i.checked=fx.orns.includes(parseInt(i.dataset.orn)));
+  if(!fx.vonw)fx.vonw=[];
+  const vb=document.getElementById('fxVonw');
+  const vh=act.length?act.map(c=>`<label class="chk"><input type="checkbox" data-vonw="${c.i}"> ${c.name}<span class="note" data-vonwn="${c.i}"></span></label>`).join(''):'<div class="note">파티에 캐릭터가 없어요.</div>';
+  if(vb.dataset.h!==vh){vb.innerHTML=vh;vb.dataset.h=vh;vb.querySelectorAll('input').forEach(i=>i.onchange=()=>{const k=parseInt(i.dataset.vonw);fx.vonw=fx.vonw.filter(x=>x!==k);if(i.checked){fx.vonw.push(k);fx.orns=fx.orns.filter(x=>x!==k);}update();});}
+  ob.querySelectorAll('input').forEach(i=>{if(!i.dataset.vx){i.dataset.vx=1;const o=i.onchange;i.onchange=()=>{if(i.checked)fx.vonw=(fx.vonw||[]).filter(x=>x!==parseInt(i.dataset.orn));o&&o();};}});
+  vb.querySelectorAll('input').forEach(i=>{const k=parseInt(i.dataset.vonw);i.checked=fx.vonw.includes(k);const c=act.find(a=>a.i===k);const n=vb.querySelector(`[data-vonwn="${k}"]`);if(n)n.textContent=c&&num(c.spd)<120?' (속도 120 미만 — 게이지 효과 없음)':'';});
 }
 
 function bindCoef(){
@@ -1069,7 +1079,7 @@ function collectPayload(){
   o.marks.filter(m=>m.k!=null&&m.t<=T+EPS).forEach(m=>{ults[m.who]=(ults[m.who]||0)+1;});
   const planEdits=Object.values(state.plan||{}).reduce((a,p)=>a+Object.keys(p.a||{}).length+(p.hold||[]).length+Object.keys(p.ud||{}).length,0);
   return {session_id:anonId(),mode:state.mode,party,
-    settings:{cycles:cyc,buffOn:!!state.buffOn,presetBuffs:state.presetBuffs||{},teamPct:num((state.teamBuff||{}).pct),wpTarget:fx.wpTarget,pearlTgt:fx.pearlTgt,tbTgt:fx.tbTgt,swUlt:num(fx.swUlt)||60,wavCost:num(fx.wavCost)||130,orns:fx.orns||[],planEdits},
+    settings:{cycles:cyc,buffOn:!!state.buffOn,presetBuffs:state.presetBuffs||{},teamPct:num((state.teamBuff||{}).pct),wpTarget:fx.wpTarget,pearlTgt:fx.pearlTgt,tbTgt:fx.tbTgt,swUlt:num(fx.swUlt)||60,wavCost:num(fx.wavCost)||130,orns:fx.orns||[],vonw:fx.vonw||[],planEdits},
     results:{T,ahaSpd:Math.round(ahaInfo().spd*10)/10,aha,ahaBonus,actions:acts,ults}};
 }
 let collectTimer=null,collectPending=null;
