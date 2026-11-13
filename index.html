@@ -83,18 +83,73 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
 .buffbox label.f input{width:80px}
 a{color:var(--accent)}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+
+/* ===== v105 가독성 ===== */
+html{scroll-behavior:smooth;scroll-padding-top:58px}
+.qnav{position:sticky;top:0;z-index:20;display:flex;gap:6px;overflow-x:auto;padding:8px 0 10px;margin:-6px 0 6px;background:linear-gradient(var(--bg) 75%,transparent);scrollbar-width:none}
+.qnav::-webkit-scrollbar{display:none}
+.qnav a{flex:none;color:var(--text);text-decoration:none;font-size:13px;padding:6px 13px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+.qnav a:hover{border-color:var(--accent)}
+@media(min-width:1180px){.wrap{max-width:1480px}.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:16px;align-items:start}}
+section.fold{padding:0}
+section.fold summary{list-style:none;padding:14px 16px;display:block}
+section.fold summary::-webkit-details-marker{display:none}
+section.fold summary h2{margin:0;flex-wrap:wrap}
+section.fold summary h2::after{content:'▾';margin-left:auto;color:var(--muted);transition:transform .15s}
+section.fold details:not([open]) summary h2::after{transform:rotate(-90deg)}
+section.fold summary:hover h2::after{color:var(--accent)}
+.sumtxt{font-size:12.5px;font-weight:500;color:var(--muted)}
+.foldbody{padding:0 16px 16px}
+.chars{grid-template-columns:repeat(auto-fit,minmax(135px,1fr))}
+.cmeta{font-size:12px;color:var(--muted);margin:6px 0 2px}
+.cmeta b{color:var(--text);font-weight:600}
+.myspd{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.myspd small{display:block;font-weight:700;font-size:12.5px;margin-bottom:4px}
+.myspd input{width:100%;font-size:20px;font-weight:800;padding:8px 10px}
+.cmore{margin-top:8px}
+.cmore summary{font-size:12px}
+.cmore label.f input{width:64px}
+.eidl{opacity:.5}
+.eidl.on{opacity:1;color:var(--ok)}
+#modeRow{display:grid;grid-template-columns:auto 1fr 1fr;gap:8px}
+#modeRow .btn{padding:9px 8px}
+.sumbar{position:fixed;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));z-index:30;display:flex;align-items:center;gap:10px;background:rgba(26,23,48,.96);border:1px solid var(--accent);border-radius:14px;padding:8px 8px 8px 14px;box-shadow:0 8px 24px rgba(0,0,0,.5);width:min(560px,calc(100% - 20px));-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.sumbar[hidden]{display:none}
+.sb-items{flex:1;display:flex;flex-wrap:wrap;gap:0 12px;font-size:12.5px;color:var(--muted);line-height:1.35}
+.sb-items b{color:var(--text);font-size:15px}
+.sb-items .hl{color:var(--accent)}
+.sumbar .btn{flex:none;padding:9px 12px}
+.wrap{padding-bottom:96px}
+@media(max-width:560px){
+  .wrap{padding:14px 10px 96px}
+  section{padding:14px 12px}
+  section.fold summary{padding:13px 12px}.foldbody{padding:0 12px 14px}
+  .chars{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .char{padding:10px}
+  th,td{padding:6px 6px;font-size:12.5px}
+  .tbl th:first-child,.tbl td:first-child{position:sticky;left:0;background:var(--panel);z-index:1}
+  #modeRow .btn{font-size:12.5px}
+  .ahabox{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .ahabox .stat:nth-child(2){grid-column:1/-1;order:-1}
+  .ahabox .stat{padding:10px}
+}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1><span>붕괴: 스타레일</span> 속도 계산기</h1>
   <div class="sub">최종 속도 · 행동 값(AV) · 사이클별 행동 횟수 · 아하 타임 속도 · 속도 구간 계산 — 4.7 에이언즈 아하 대응</div>
+  <div id="sumBar" class="sumbar" hidden><div class="sb-items" id="sbItems"></div><button class="btn primary" id="sbGo">결과 보기</button></div>
 
+  <nav class="qnav" id="qnav">
+    <a href="#secInput">입력</a><a href="#secSet">캐릭터 설정</a><a href="#secResult">결과</a><a href="#secOrder">행동 순서</a>
+  </nav>
+  <div class="cols">
+  <div class="colL">
   <section style="padding:12px 16px">
     <div class="row" id="modeRow"></div>
   </section>
-
-  <section>
+  <section id="secInput">
     <h2>환락 캐릭터 구성 <span class="tag">입력</span></h2>
     <div class="chars" id="chars"></div>
     <div class="row" style="margin-top:12px">
@@ -103,24 +158,36 @@ a{color:var(--accent)}
     <p class="note" style="margin:10px 0 0">「내 속도」 = 캐릭터 상세 화면의 최종 속도</p>
     <p class="note" id="elNote" style="margin:6px 0 0"></p>
   </section>
-
-  <section>
-    <h2>전투 중 속도 버프</h2>
+  <section id="secSet">
+    <h2>캐릭터별 설정</h2>
+    <div id="setBox"></div>
+    <p class="note" style="margin:8px 0 0">모든 캐릭터는 필살기 에너지의 절반으로 시작 · 필살기 후 에너지 +5 · 에너지가 차면 바로 필살기 (수직선에서 미루기 가능) · 피격·처치 에너지와 웨이브 전환은 계산하지 않음</p>
+  </section>
+  <section class="fold" id="foldRelic">
+    <details data-fold="foldRelic">
+    <summary><h2>유물 · 장신구<span class="sumtxt" id="sumRelic"></span></h2></summary>
+    <div class="foldbody">
+    <div class="note" style="margin-bottom:8px">캐릭터마다 유물 4세트와 장신구를 하나씩 골라요. 2세트 속도(+6%)처럼 캐릭터 화면 최종 속도에 이미 들어간 효과는 따로 넣지 않아요.</div>
+    <div class="fxgrid" id="fxRelic"></div>
+    </div>
+    </details>
+  </section>
+  <section class="fold" id="foldBuff">
+    <details data-fold="foldBuff">
+    <summary><h2>전투 중 속도 버프<span class="sumtxt" id="sumBuff"></span></h2></summary>
+    <div class="foldbody">
     <label class="chk" style="font-size:14px"><input type="checkbox" id="buffOn"> 속도 버프 적용해서 계산하기</label>
     <div id="presetBuffs" style="margin-top:6px"></div>
     <div class="row" style="margin-top:6px">
       <label class="f">기타 파티 전체 속도 버프 % <input type="number" id="tPct" step="0.1"></label>
     </div>
+    </div>
+    </details>
   </section>
-
-  <section>
-    <h2>유물 · 장신구</h2>
-    <div class="note" style="margin-bottom:8px">캐릭터마다 유물 4세트와 장신구를 하나씩 골라요. 2세트 속도(+6%)처럼 캐릭터 화면 최종 속도에 이미 들어간 효과는 따로 넣지 않아요.</div>
-    <div class="fxgrid" id="fxRelic"></div>
-  </section>
-
-  <section>
-    <h2>행동 게이지 증가</h2>
+  <section class="fold" id="foldAg">
+    <details data-fold="foldAg">
+    <summary><h2>행동 게이지 증가<span class="sumtxt" id="sumAg"></span></h2></summary>
+    <div class="foldbody">
     <div class="fxgrid">
       <div class="stat">
         <div class="k">전투 시작</div>
@@ -129,23 +196,12 @@ a{color:var(--accent)}
         <div class="note" style="margin-top:8px">환커공·바커공(전투 시작)과 매 4세트(필살기 후) 행동 게이지 증가는 「유물 · 장신구」에서 설정해요.</div>
       </div>
     </div>
-  </section>
-  <section>
-    <h2>캐릭터별 설정</h2>
-    <div id="setBox"></div>
-    <p class="note" style="margin:8px 0 0">모든 캐릭터는 필살기 에너지의 절반으로 시작 · 필살기 후 에너지 +5 · 에너지가 차면 바로 필살기 (수직선에서 미루기 가능) · 피격·처치 에너지와 웨이브 전환은 계산하지 않음</p>
-  </section>
-
-  <section>
-    <h2>사이클별 행동 횟수</h2>
-    <div class="row" style="margin-bottom:10px">
-      <label class="f" style="color:var(--text)">계산할 사이클 수 <input type="number" id="cycles" min="1" max="30" step="1"></label>
-      <span class="note" id="totalAV"></span>
     </div>
-    <div class="tbl"><table id="actTable"></table></div>
+    </details>
   </section>
-
-  <section>
+  </div>
+  <div class="colR">
+  <section id="secResult">
     <h2>아하 타임 속도</h2>
     <div class="row" id="ownedRow" style="margin-bottom:10px">
       <label class="chk"><input type="checkbox" id="owned"> 에이언즈 아하 보유 (파티에 없어도 적용)</label>
@@ -166,8 +222,6 @@ a{color:var(--accent)}
       <button class="btn" id="resetCoef" style="margin-top:6px">계수 기본값으로</button>
     </details>
   </section>
-
-
   <section>
     <h2>라운드별 행동 · 한 번 더 행동까지</h2>
     <div class="row" style="margin-bottom:10px">
@@ -176,17 +230,26 @@ a{color:var(--accent)}
     <div class="tbl"><table id="bpTable"></table></div>
     <p class="note" style="margin:6px 0 0">위: 그 라운드 행동 횟수 · 아래: 그 라운드까지 한 번 더 행동하려면 필요한 속도 (괄호는 목표 속도, 소수 둘째 자리에서 올림)</p>
   </section>
-
   <section>
+    <h2>사이클별 행동 횟수</h2>
+    <div class="row" style="margin-bottom:10px">
+      <label class="f" style="color:var(--text)">계산할 사이클 수 <input type="number" id="cycles" min="1" max="30" step="1"></label>
+      <span class="note" id="totalAV"></span>
+    </div>
+    <div class="tbl"><table id="actTable"></table></div>
+  </section>
+  <section id="secOrder">
     <h2>행동 순서 타임라인</h2>
     <div id="planBox"></div>
     <details style="margin-top:10px"><summary>목록으로 보기</summary><div class="tbl" style="margin-top:8px"><table id="timeline"></table></div></details>
   </section>
-
+  </div>
+  </div>
   <p class="note" id="collectNote" style="display:none;margin:18px 4px 0;text-align:center;font-size:12px;line-height:1.6">이 계산기는 개선과 통계를 위해 입력한 <b>파티 구성 · 캐릭터별 속도 · 성혼/광추 · 계산 결과</b>를 익명으로 수집해요. 페이지를 나갈 때 <b>마지막 세팅 1건</b>만 저장되고, 이름 등 개인을 식별할 수 있는 정보는 수집하지 않아요.<br><label style="white-space:nowrap;cursor:pointer"><input type="checkbox" id="optOut"> 수집하지 않기</label></p>
 </div>
 
 <script>
+var SUMBAR=null;
 const COLORS=['#c58bff','#5fd4ff','#ffb35f','#5fe0a8','#ff7ab8'];
 const DEFAULT_COEF={ahaBase:80,c1:0.2,c2:0.1,c3:0.05,c4:0.025};
 // 환락 캐릭터 기초 속도
@@ -634,7 +697,7 @@ function renderSettings(marks,T){
     else if(LC_INFO[k])body+=`<label class="chk"><input type="checkbox" data-lc="${k}"${lcOf(fx,k)?' checked':''}> ${LC_INFO[k]}</label>`;
     if(cfgOf(k).energy)body+=`<label class="f">기타 에너지 회복 효율 % <input type="number" data-er="${k}|other" step="0.1" value="${er.other||0}"></label><div class="note">매듭·장신구 에너지 회복 효율은 「유물 · 장신구」에서 설정해요.</div>`;
     if(EID_INFO[k]){const e=eidOf(fx,k);body+=`<label class="f">성혼 <select data-eid="${k}" style="width:90px">${[0,1,2,3,4,5,6].map(v=>`<option value="${v}"${e===v?' selected':''}>${v}돌</option>`).join('')}</select></label>
-      <div class="note">${EID_INFO[k].map(([lv,txt])=>`<div style="${e>=lv?'color:var(--ok)':''}">${e>=lv?'✓ ':''}${txt}</div>`).join('')}</div>`;}
+      <div class="note">${EID_INFO[k].map(([lv,txt])=>`<div class="eidl${e>=lv?' on':''}">${e>=lv?'✓ ':''}${txt}</div>`).join('')}</div>`;}
     body+=`<div data-res="${k}" style="margin-top:6px"></div>`;
     h+=`<div class="stat"><div style="font-weight:700;margin-bottom:4px"><span class="dot" style="background:${COLORS[c.i]}"></span>${c.name}</div>${body}</div>`;
   });
@@ -867,16 +930,18 @@ function renderChars(){
     if(c.key!=='none'){
       if(c.key==='custom')inner+=`<input type="text" data-k="name" value="${c.name.replace(/"/g,'&quot;')}" style="margin-top:6px">`;
       inner+=`
-      ${c.key==='custom'?`<label class="f">기초 속도 <input type="number" data-k="base" step="1" value="${c.base}"></label>`:`<label class="f">기초 속도 <b style="color:var(--text)">${c.base}</b></label>`}
+      ${c.key==='custom'?`<label class="f">기초 속도 <input type="number" data-k="base" step="1" value="${c.base}" style="width:70px"></label>`:''}
+      <div class="cmeta">${c.key==='custom'?'':`기초 <b>${c.base}</b> · `}AV <b data-out="av"></b></div>
       ${isAeon(c)?sigSlider('data-sig',parseInt(c.sig)||0):''}
-      <div class="final"><small style="color:var(--text);font-weight:700">내 속도</small><input type="number" data-k="spd" step="0.1" value="${c.spd}" style="width:110px;font-size:18px;font-weight:800"></div>
+      <div class="myspd"><small>내 속도</small><input type="number" data-k="spd" step="0.1" value="${c.spd}" inputmode="decimal"></div>
       <div class="buffbox">
-        <label class="f">속도 버프 % <input type="number" data-k="bpct" step="0.1" value="${f1(totalPct(c))}"></label>
+        <label class="f">버프 % <input type="number" data-k="bpct" step="0.1" value="${f1(totalPct(c))}"></label>
         <div class="note" data-out="pctnote" style="text-align:right;margin-top:-4px"></div>
-        <div class="final" style="border:none;padding-top:0;margin-top:2px"><small>버프 후 속도</small><b data-out="buffed" style="font-size:18px;color:var(--ok)"></b></div>
+        <div class="final" style="border:none;padding-top:0;margin-top:2px"><small>버프 후</small><b data-out="buffed" style="font-size:18px;color:var(--ok)"></b></div>
       </div>
-      <div class="final" style="border:none;padding-top:0;margin-top:2px"><small>AV</small><span data-out="av"></span></div>
-      <label class="f" style="margin-top:8px">기타 전투 시작 게이지 증가 % <input type="number" data-k="adv" min="0" max="100" step="1" value="${c.adv||0}"></label>
+      <details class="cmore"${num(c.adv)?' open':''}><summary>전투 시작 게이지${num(c.adv)?` <b style="color:var(--text)">+${num(c.adv)}%</b>`:''}</summary>
+        <label class="f">기타 게이지 증가 % <input type="number" data-k="adv" min="0" max="100" step="1" value="${c.adv||0}"></label>
+        <div class="note">아하 추가 능력 3·장신구 외 다른 효과</div></details>
       <div data-out="th"></div>`;
     }
     d.innerHTML=inner;
@@ -907,7 +972,7 @@ function update(){
     const s=finalSpd(c), set=num(c.spd);
     const warnBase=baseSpd(c);
     el.querySelector('[data-out=buffed]').textContent=f1(set+withBuff(true,()=>buffAmt(c)));
-    lockArea(el.querySelector('.buffbox'),!state.buffOn);
+    {const bb=el.querySelector('.buffbox');bb.style.display=state.buffOn?'':'none';}
     const pf=el.querySelector('[data-k=bpct]');if(document.activeElement!==pf)pf.value=f1(totalPct(c));
     const pp=presetPct(), tpv=num((state.teamBuff||{}).pct);
     const parts=[];PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))parts.push(b.name);});
@@ -948,6 +1013,7 @@ function update(){
   const SIM=simAll(T);
   const autoMarks=SIM.marks;
   const st=document.getElementById('ahaStats');
+  SUMBAR=null;
   if(!a.anyElation){
     st.innerHTML=`<div class="stat"><div class="k">아하 타임</div><div class="v">-</div><div class="d">환락 캐릭터가 없으면 아하가 행동 순서에 나오지 않아요.</div></div>`;
     document.getElementById('ahaFormula').textContent='';
@@ -964,6 +1030,7 @@ function update(){
       <div class="stat"><div class="k">${n}사이클(${T} AV) 동안 아하 타임</div><div class="v">${cT}회</div><div class="d" style="margin-top:4px">${perCyc}</div>${ex?`<div class="d" style="margin-top:4px">기본 턴 <b style="color:var(--text)">${inT.length-ex}회</b> · ${exTxt}</div>`:''}</div>
       <div class="stat"><div class="k">다음 횟수까지</div><div class="v">${isFinite(nd)?ceil1(gap).toFixed(1):'-'}</div><div class="d">아하 타임 속도가 이만큼 더 필요${isFinite(nd)&&a.coefs[0]&&a.pool[0]?` · 1위 환락 캐릭터 기준 +${ceil1(gap/a.coefs[0]).toFixed(1)}`:''}</div></div>`;
     document.getElementById('ahaFormula').textContent='아하 타임 속도 = '+a.parts.join(' + ')+' = '+f2(a.spd);
+    SUMBAR={spd:a.spd,cnt:cT,n,gap:isFinite(nd)?ceil1(gap):null};
   }
 
   // action table
@@ -1018,6 +1085,7 @@ function update(){
   CUR={units,T};
   document.getElementById('bpTable').innerHTML=bp;
   save();
+  if(typeof afterUpdate==='function')afterUpdate();
   if(typeof scheduleCollect==='function')scheduleCollect();
 }
 
@@ -1116,6 +1184,41 @@ window.addEventListener('pagehide',flushCollect);
   c.onchange=()=>{try{localStorage.setItem('hsrOptOut',c.checked?'1':'0');}catch(e){}};})();
 
 bindCoef();bindSettings();renderChars();
+// ===== v105: 접기 요약 · 결과 요약 바 =====
+function afterUpdate(){
+  try{
+    const sb=document.getElementById('sumBuff');
+    if(sb){const on=!!state.buffOn,ps=[];if(on){PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))ps.push(b.name);});const tp=num((state.teamBuff||{}).pct);if(tp)ps.push('기타 +'+tp+'%');}
+      sb.innerHTML=on?`<span class="pill p-ok">켜짐</span> ${ps.join(' · ')}`:'꺼짐';}
+    const sr=document.getElementById('sumRelic'),rb=document.getElementById('fxRelic');
+    if(sr&&rb){const cnt={};const add=k=>cnt[k]=(cnt[k]||0)+1;
+      rb.querySelectorAll('select[data-rset]').forEach(x=>{if(x.value==='eagle')add('매 4세트');});
+      rb.querySelectorAll('select[data-rorn]').forEach(x=>{if(x.value==='hwan')add('환커공');else if(x.value==='vonw')add('바커공');else if(x.value==='er5')add('에충 장신구');});
+      rb.querySelectorAll('input[data-rrope]').forEach(x=>{if(x.checked)add('에충 매듭');});
+      const e=Object.entries(cnt);sr.textContent=e.length?e.map(([k,v])=>`${k} ${v}`).join(' · '):'선택 없음';}
+    const sa=document.getElementById('sumAg');
+    if(sa){const on=[['fxMhState','아하 추가 능력 3'],['fxTechState','아하 비술']].filter(([id])=>{const el=document.getElementById(id);return el&&/적용/.test(el.textContent)&&!/미적용|안/.test(el.textContent);}).map(x=>x[1]);
+      sa.textContent=on.length?on.join(' · ')+' 적용 중':'적용 없음';}
+  }catch(e){}
+  renderSumBar();
+}
+var resultVisible=false;
+function renderSumBar(){
+  const bar=document.getElementById('sumBar');if(!bar)return;
+  if(!SUMBAR||resultVisible){bar.hidden=true;return;}
+  const S=SUMBAR;
+  document.getElementById('sbItems').innerHTML=`<span>아하 타임 <b class="hl">${S.cnt}회</b> <small>(${S.n}사이클)</small></span><span>속도 <b>${f1(S.spd)}</b></span>${S.gap!=null?`<span>다음까지 <b>+${S.gap.toFixed(1)}</b></span>`:''}`;
+  bar.hidden=false;
+}
+(function(){
+  let F={};try{F=JSON.parse(localStorage.getItem('hsrFolds')||'{}');}catch(e){}
+  document.querySelectorAll('details[data-fold]').forEach(d=>{const id=d.dataset.fold;if(F[id])d.open=true;
+    d.addEventListener('toggle',()=>{F[id]=d.open;try{localStorage.setItem('hsrFolds',JSON.stringify(F));}catch(e){}});});
+  const res=document.getElementById('secResult');
+  if(res&&'IntersectionObserver' in window){new IntersectionObserver(es=>{es.forEach(e=>{resultVisible=e.isIntersecting;renderSumBar();});},{rootMargin:'0px 0px -35% 0px'}).observe(res);}
+  document.getElementById('sbGo').onclick=()=>res&&res.scrollIntoView({behavior:'smooth',block:'start'});
+  afterUpdate();
+})();
 </script>
 </body>
 </html>
