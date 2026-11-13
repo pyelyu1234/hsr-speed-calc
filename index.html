@@ -363,7 +363,8 @@ function simAll(T,ov){
   const ahaOffset=aha?(('aha' in ov)?ov.aha-ahaFormula():0):0;
   function setSpd(s,v,t){if(!(v>0)||Math.abs(v-s.spd)<1e-9)return;const rem=Math.max(0,s.next-t);s.next=t+rem*s.spd/v;s.spd=v;s.iv=10000/v;}
   function refresh(s,t){const p=Object.values(s.pct).reduce((a,b)=>a+b,0);setSpd(s,s.spd0+num(s.u.base)*p/100,t);}
-  function refreshAha(t){if(aha)setSpd(aha,ahaFormula()+ahaOffset,t);}
+  let wavAhaBuff=0; // 웨이브 추가 능력 2: 아하 속도 +25 (아하 타임 종료까지)
+  function refreshAha(t){if(aha)setSpd(aha,ahaFormula()+ahaOffset+wavAhaBuff,t);}
   function setPct(s,key,val,t){if(val)s.pct[key]=val;else delete s.pct[key];refresh(s,t);refreshAha(t);}
   const adv=(s,t,p)=>{if(!s)return;const rem=Math.max(0,s.next-t);s.next=t+Math.max(0,rem-p/100*s.iv);};
   const mark=(t,name,who,extra)=>marks.push(Object.assign({t,name,who,seq:SEQ++},extra||{}));
@@ -436,7 +437,8 @@ function simAll(T,ov){
       if(swState&&heldR(swS)>0){boxAcc+=boxP;if(boxAcc>=1-1e-9){boxAcc-=1;boxP*=0.2;boxEffect(t);}}}
   }
   function boxEffect(t){laughGain(1,t);spAcc+=2/3;while(spAcc>=1-1e-9){spAcc-=1;spGain(1);}}
-  function attackBy(s,t){if(wavenS&&s!==wavenS){laughGain(1,t);zealGain(1,t);}}
+  function attackBy(s,t){if(wavenS&&s!==wavenS){laughGain(1,t);zealGain(1,t);rGain(wavenS,2,t); // 웨이브 추가 능력 2: 동료 공격 후 [보상을] 2 · 웃음 1
+    if(aha&&!wavAhaBuff){wavAhaBuff=25;refreshAha(t);if(!inAha)mark(t,`웨이브 추가 능력 2: ${s.u.name} 공격 → 아하 속도 +25 (아하 타임 종료까지)`,'wavA2');}}}
   // ---- 원력 ----
   function wpGain(n,t){if(!aeonS||!aha)return;wp=Math.min(10,wp+n);} // 필살기는 행동이 끝난 뒤에만 확인
   // ---- 환락 스킬 ----
@@ -473,6 +475,7 @@ function simAll(T,ov){
     if(aeonS&&laugh>=40-1e-9){armed40=false;wpGain(1,t);}
     if(spxS&&eidOf(fx,'sparxie')>=1)laughGain(5,t);
     if(spxS&&eidOf(fx,'sparxie')>=2){thrill=Math.min(THR_MAX,thrill+2);queue.push({s:spxS,src:'스파키 2돌 보너스 턴'});}
+    if(wavAhaBuff){wavAhaBuff=0;refreshAha(t);} // 아하 타임 종료 → 웨이브 속도 +25 해제
     if(rec)rec.post=snap();
   }
   // ---- 캐릭터 행동 ----
@@ -679,7 +682,7 @@ function renderSettings(marks,T){
     if(k==='pearl')body+=`<label class="f">필살기 대상 <select data-fx="pearlTgt" style="width:150px">${tOpts(k,fx.pearlTgt,'선택 안 함')}</select></label>`;
     if(k==='trailblazer')body+=`<label class="f">필살기 대상 <select data-fx="tbTgt" style="width:150px">${tOpts(k,fx.tbTgt,'선택 안 함')}</select></label>`;
     if(k==='evanescia')body+=`<div class="note">에너지 240에서 필살기 (240 소모, 최대 480) · 시작 에너지 240 · [보상] 획득 = 같은 양 에너지 · 누적 에너지 240마다 [여우 선생님]</div>`;
-    if(k==='waven')body+=`<label class="f">필살기 에너지 <input type="number" data-fx="wavCost" min="1" step="5" value="${num(fx.wavCost)||130}"></label>`;
+    if(k==='waven')body+=`<label class="f">필살기 에너지 <input type="number" data-fx="wavCost" min="1" step="5" value="${num(fx.wavCost)||130}"></label><div class="note">추가 능력 2: 동료 공격 후 [보상을] +2 · 웃음 포인트 +1 · 아하 속도 +25 (아하 타임 종료까지, 중첩 없음) — 계산에 자동 반영</div>`;
     if(k==='silverwolf999'){const thr=Math.max(60,num(fx.swUlt)||60);body+=`<label class="f">필살기 사용 히든 스코어 <input type="number" data-fx="swUlt" min="60" max="999" step="10" value="${thr}"></label>
       <div class="note">60 이상에서 사용 가능 · 최대 300 (에이언즈 아하 [환락만상] 중 360, 에이언즈 아하 2돌이면 999)</div>`;}
     if(k==='silverwolf999'){const v=lcOf(fx,k)?lcS(fx,k):0;body+=`<div class="sig"><div class="sighead"><span>전용 광추 (확실한 승리)</span><b class="sigval" data-lcsv>${swLcLabel(v)}</b></div><input type="range" min="0" max="5" step="1" data-lcs="${k}" value="${v}"><div class="sigticks"><span>미착용</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div></div><div class="note">필살기 시 웃음 포인트 획득 · 일반 공격 3회마다 재사용</div>`;}
@@ -1015,7 +1018,7 @@ function update(){
     const exTxt=Object.entries(exBy).map(([k,v])=>`<span style="white-space:nowrap">${k} <b style="color:var(--text)">${v}회</b></span>`).join(' · ');
     let pc=0;const perCyc=Array.from({length:n},(_,k)=>{const c=ahaEv.filter(e=>e.t<=totalAV(k+1)+EPS).length;const r=c-pc;pc=c;return `<span style="white-space:nowrap">${k}사이클 <b style="color:var(--text)">${r}회</b></span>`;}).join(' · ');
     st.innerHTML=`
-      <div class="stat"><div class="k">아하 타임 속도${state.buffOn?' (버프 후)':''}</div><div class="v" style="color:var(--accent)">${f1(a.spd)}</div><div class="d">AV ${f2(first)}${state.buffOn?` · 버프 전 ${f1(withBuff(false,()=>ahaInfo().spd))}`:''}</div></div>
+      <div class="stat"><div class="k">아하 타임 속도${state.buffOn?' (버프 후)':''}</div><div class="v" style="color:var(--accent)">${f1(a.spd)}</div><div class="d">AV ${f2(first)}${state.buffOn?` · 버프 전 ${f1(withBuff(false,()=>ahaInfo().spd))}`:''}${active().some(c=>c.key==='waven')?'<br>+ 웨이브 추가 능력 2: 동료 공격 후 아하 타임 종료까지 +25 (순서 계산에 반영)':''}</div></div>
       <div class="stat"><div class="k">${n}사이클(${T} AV) 동안 아하 타임</div><div class="v">${cT}회</div><div class="d" style="margin-top:4px">${perCyc}</div>${ex?`<div class="d" style="margin-top:4px">기본 턴 <b style="color:var(--text)">${inT.length-ex}회</b> · ${exTxt}</div>`:''}</div>
       <div class="stat"><div class="k">다음 횟수까지</div><div class="v">${isFinite(nd)?ceil1(gap).toFixed(1):'-'}</div><div class="d">아하 타임 속도가 이만큼 더 필요${isFinite(nd)&&a.coefs[0]&&a.pool[0]?` · 1위 환락 캐릭터 기준 +${ceil1(gap/a.coefs[0]).toFixed(1)}`:''}</div></div>`;
     document.getElementById('ahaFormula').textContent='아하 타임 속도 = '+a.parts.join(' + ')+' = '+f2(a.spd);
