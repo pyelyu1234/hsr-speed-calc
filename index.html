@@ -585,7 +585,8 @@ function simulate(u,spd,T){return simAll(T,{[u.id]:spd}).ev[u.id]||[];}
 const countIn=(u,spd,T)=>simulate(u,spd,T).length;
 function needFor(u,k,T){
   if(countIn(u,2000,T)<k)return Infinity;
-  let lo=0.01,hi=2000;
+  let lo=Math.max(0.01,num(u.spd)||0.01),hi=2000; // 현재 속도보다 낮은 값은 찾지 않음 (보너스 턴 때문에 속도↔행동 수가 단조롭지 않을 수 있음)
+  if(countIn(u,lo,T)>=k)return lo;
   for(let j=0;j<40;j++){const m=(lo+hi)/2;if(countIn(u,m,T)>=k)hi=m;else lo=m;}
   return hi;
 }
