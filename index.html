@@ -1080,7 +1080,7 @@ function bindCoef(){
 document.getElementById('reset').onclick=()=>{state={chars:defaultChars(),coef:{...DEFAULT_COEF},cycles:3,bpCycles:3,owned:{has:false,sig:0},mode:'moc',buffOn:false,teamBuff:{pct:0},presetBuffs:{yg:false,gx:false}};state.fx=null;state.plan={};PICK=null;bindCoef();renderChars();};
 document.getElementById('resetCoef').onclick=()=>{state.coef={...DEFAULT_COEF};bindCoef();update();};
 // ===== 익명 사용 통계 수집 (Supabase) — GitHub Pages에서만 동작 =====
-const COLLECT={url:'',key:'',table:'calc_logs'}; // url: https://xxxx.supabase.co · key: publishable(anon) 키
+const COLLECT={url:'https://nrxpnhwbpculidkzhjcw.supabase.co',key:'sb_publishable_X0RvjkuOwhaxJFXBRkJk8A_z3nSSVyV',table:'calc_logs'}; // url: https://xxxx.supabase.co · key: publishable(anon) 키
 const collectOn=()=>!!(COLLECT.url&&COLLECT.key)&&/github\.io$/.test(location.hostname);
 const optedOut=()=>{try{return localStorage.getItem('hsrOptOut')==='1';}catch(e){return false;}};
 function anonId(){try{let v=localStorage.getItem('hsrAnon');if(!v){v=Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('hsrAnon',v);}return v;}catch(e){return 'na';}}
