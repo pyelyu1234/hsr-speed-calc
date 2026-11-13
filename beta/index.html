@@ -224,7 +224,7 @@ section.fold summary:hover h2::after{color:var(--accent)}
   <section id="secRank" hidden>
     <h2>다른 사용자와 비교 <span class="tag">익명</span></h2>
     <div id="rankBox"></div>
-    <p class="note" style="margin:10px 0 0">같은 콘텐츠의 다른 사용자 기록과 비교해요 (한 사람당 파티별 최신 1건). 평균과 순위 같은 집계만 보여주고, 다른 사람의 개별 기록은 볼 수 없어요. 비교 대상이 5명 미만인 항목은 표시하지 않아요.</p>
+    <p class="note" style="margin:10px 0 0">같은 콘텐츠의 다른 사용자 기록과 비교해요 (한 사람당 콘텐츠별 최신 세팅 1건). 평균과 순위 같은 집계만 보여주고, 다른 사람의 개별 기록은 볼 수 없어요. 비교 대상이 5명 미만인 항목은 표시하지 않아요.</p>
   </section>
 
   <section>
@@ -1224,7 +1224,7 @@ async function runRank(){
   let r=RANK.cache.get(key);
   if(!r){box.innerHTML='<div class="rk-empty">비교 데이터를 불러오는 중…</div>';
     try{const h={'apikey':COLLECT.key,'Content-Type':'application/json'};if(/^eyJ/.test(COLLECT.key))h.Authorization='Bearer '+COLLECT.key;
-      const res=await fetch(COLLECT.url.replace(/\/$/,'')+'/rest/v1/rpc/calc_rank',{method:'POST',headers:h,body:JSON.stringify({q:{...q,chars:q.chars.map(({key,spd})=>({key,spd}))}})});
+      const res=await fetch(COLLECT.url.replace(/\/$/,'')+'/rest/v1/rpc/calc_rank_v2',{method:'POST',headers:h,body:JSON.stringify({q:{...q,chars:q.chars.map(({key,spd})=>({key,spd}))}})});
       if(res.status===404){RANK.off=true;sec.hidden=true;return;} // DB에 함수가 아직 없음
       if(!res.ok)throw new Error('HTTP '+res.status);
       r=await res.json();RANK.cache.set(key,r);}
