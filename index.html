@@ -267,7 +267,7 @@ let CUR={units:[],T:0};
 // ===== 시뮬레이션 엔진 v54: 행동 선택 · SP · 에너지 · 웃음 포인트 · 원력 · 히든 스코어 =====
 const CFG={
   aeon_aha:{short:'아',acts:['skill','basic']},
-  pearl:{short:'펄',acts:['enh'],cost:90,start:45,energy:true},
+  pearl:{short:'펄',acts:['enh'],cost:180,start:90,energy:true},
   waven:{short:'웨',acts:['skill','basic'],energy:true},
   evanescia:{short:'에',acts:['skill','basic'],cost:240,energy:true},
   silverwolf999:{short:'은',acts:['skill','basic']},
@@ -339,8 +339,8 @@ function simAll(T,ov){
   function allyAct(s,t){if(wavenS&&s!==wavenS&&wavA3<6){wavA3++;zealGain(2,t);}} // 웨이브 추가 능력 3
   const wCOST=Math.max(1,num(fx.wavCost)||130);
   // 펄·효광·스파키·환척자 에너지
-  const COST={pearl:90,waven:wCOST,yaoguang:180,sparxie:160,trailblazer:160,evanescia:240};
-  chars.forEach(s=>{s.R=[];if(COST[s.key])s.E=s.key==='pearl'?45:s.key==='evanescia'?240:COST[s.key]/2;});
+  const COST={pearl:180,waven:wCOST,yaoguang:180,sparxie:160,trailblazer:160,evanescia:240};
+  chars.forEach(s=>{s.R=[];if(COST[s.key])s.E=s.key==='evanescia'?240:COST[s.key]/2;});
   const elOrder=chars.slice().sort((a,b)=>(ORDER[a.key]||500)-(ORDER[b.key]||500));
   let tbE1=0, evCum=0, evUlts=0, pearlTalentR=0, tbA3=false, pearlHold=0, pearlA3=true; // 펄 추가 능력 3: 전투 진입·필살기 후 저본의 다음 필살기 때 펄 에너지 고정 +90
   const pearlCap=()=>manTurns>0?75:50; // 펄 [보상을] 보유 최대치 50 · [환락만상] 중 75
@@ -494,7 +494,7 @@ function simAll(T,ov){
           mark(t,'에이언즈 아하 필살기'+(first&&eidOf(fx,'aeon_aha')>=6?' (6돌: 아하 타임 +100%)':''),'aeon_aha',{k:s.n});
           adv(aha,t,20);if(first&&eidOf(fx,'aeon_aha')>=6){adv(aha,t,100);laughGain(100,t);}
           setMan(3,t);attackBy(s,t);if(fx.wpHeal)wp=Math.min(10,wp+1);fired=true;}
-        else if(k==='pearl'&&pTgt&&s.E>=90-1e-9){s.E-=90;eGain(s,5);rGain(s,20,t);
+        else if(k==='pearl'&&pTgt&&s.E>=180-1e-9){s.E-=180;eGain(s,5);rGain(s,20,t);
           mark(t,`펄 필살기 → ${pTgt.u.name} 행동 게이지 +${pAdv}%${pExtra?' · 즉시 추가 턴':''}`,'pearl',{k:s.n});
           adv(pTgt,t,pAdv);
           if(eidOf(fx,'pearl')>=2){const others=chars.filter(o=>o!==pearlS&&o!==pTgt);others.forEach(o=>adv(o,t,pAdv));
