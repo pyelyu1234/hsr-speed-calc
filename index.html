@@ -146,6 +146,7 @@ section.fold summary:hover h2::after{color:var(--accent)}
 </head>
 <body>
 <div class="wrap">
+  <div id="betaBar" hidden style="background:#3a2a00;border:1px solid var(--warn);color:var(--warn);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:13px"><b>테스트 버전</b> · 새 기능 확인용이에요. 여기서 쓴 기록은 수집되지 않아요. <a href="../" style="color:var(--warn)">본 사이트로 →</a></div>
   <h1><span>붕괴: 스타레일</span> 속도 계산기</h1>
   <div class="sub">최종 속도 · 행동 값(AV) · 사이클별 행동 횟수 · 아하 타임 속도 · 속도 구간 계산 — 4.7 에이언즈 아하 대응</div>
   <div id="sumBar" class="sumbar" hidden><div class="sb-items" id="sbItems"></div><button class="btn primary" id="sbGo">결과 보기</button></div>
@@ -223,7 +224,7 @@ section.fold summary:hover h2::after{color:var(--accent)}
   <section id="secRank" hidden>
     <h2>다른 사용자와 비교 <span class="tag">익명</span></h2>
     <div id="rankBox"></div>
-    <p class="note" style="margin:10px 0 0">같은 콘텐츠의 다른 사용자 기록과 비교해요 (한 사람당 파티별 최신 1건). 평균과 순위 같은 집계만 보여주고, 다른 사람의 개별 기록은 볼 수 없어요. 비교 대상이 5명 미만인 항목은 표시하지 않아요.</p>
+    <p class="note" style="margin:10px 0 0">같은 콘텐츠의 다른 사용자 기록과 비교해요 (한 사람당 콘텐츠별 최신 세팅 1건). 평균과 순위 같은 집계만 보여주고, 다른 사람의 개별 기록은 볼 수 없어요. 비교 대상이 5명 미만인 항목은 표시하지 않아요.</p>
   </section>
 
   <section>
@@ -276,8 +277,8 @@ function fromDb(k){
 }
 function defaultChars(){return [blank(),blank(),blank(),blank()];}
 let state={chars:defaultChars(),coef:{...DEFAULT_COEF},cycles:3,bpCycles:3,owned:{has:false,sig:0},mode:'moc',buffOn:false,teamBuff:{pct:0},presetBuffs:{yg:false,gx:false}};
-try{const keys=['hsrSpdCalc','hsrSpdCalcV58','hsrSpdCalcV57','hsrSpdCalcV56','hsrSpdCalcV55','hsrSpdCalcV54','hsrSpdCalcV53'];let raw=null;for(const k of keys){raw=localStorage.getItem(k);if(raw)break;}const s=JSON.parse(raw||'null');if(s&&s.chars&&s.chars.length===4)state={...state,...s,coef:{...DEFAULT_COEF,...s.coef}};}catch(e){}
-function save(){try{localStorage.setItem('hsrSpdCalc',JSON.stringify(state));}catch(e){}}
+try{const keys=[...(/\/beta\//.test(location.pathname)?['hsrSpdCalcBeta']:[]),'hsrSpdCalc','hsrSpdCalcV58','hsrSpdCalcV57','hsrSpdCalcV56','hsrSpdCalcV55','hsrSpdCalcV54','hsrSpdCalcV53'];let raw=null;for(const k of keys){raw=localStorage.getItem(k);if(raw)break;}const s=JSON.parse(raw||'null');if(s&&s.chars&&s.chars.length===4)state={...state,...s,coef:{...DEFAULT_COEF,...s.coef}};}catch(e){}
+function save(){try{localStorage.setItem(/\/beta\//.test(location.pathname)?'hsrSpdCalcBeta':'hsrSpdCalc',JSON.stringify(state));}catch(e){}}
 const active=()=>state.chars.map((c,i)=>({...c,i})).filter(c=>c.key!=='none');
 const isAeon=c=>c.key==='aeon_aha';
 
@@ -1165,7 +1166,8 @@ document.getElementById('reset').onclick=()=>{state={chars:defaultChars(),coef:{
 
 // ===== 익명 사용 통계 수집 (Supabase) — GitHub Pages에서만 동작 =====
 const COLLECT={url:'https://nrxpnhwbpculidkzhjcw.supabase.co',key:'sb_publishable_X0RvjkuOwhaxJFXBRkJk8A_z3nSSVyV',table:'calc_logs'}; // url: https://xxxx.supabase.co · key: publishable(anon) 키
-const collectOn=()=>!!(COLLECT.url&&COLLECT.key)&&/github\.io$/.test(location.hostname);
+const IS_BETA=/\/beta\//.test(location.pathname); // 테스트 사이트: 수집 안 함 (순위 조회는 가능)
+const collectOn=()=>!IS_BETA&&!!(COLLECT.url&&COLLECT.key)&&/github\.io$/.test(location.hostname);
 const optedOut=()=>{try{return localStorage.getItem('hsrOptOut')==='1';}catch(e){return false;}};
 function anonId(){try{let v=localStorage.getItem('hsrAnon');if(!v){v=Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('hsrAnon',v);}return v;}catch(e){return 'na';}}
 function collectPayload(){
@@ -1200,6 +1202,7 @@ window.addEventListener('pagehide',flushCollect);
   c.onchange=()=>{try{localStorage.setItem('hsrOptOut',c.checked?'1':'0');}catch(e){}};})();
 
 bindCoef();bindSettings();renderChars();
+try{if(/\/beta\//.test(location.pathname))document.getElementById('betaBar').hidden=false;}catch(e){}
 // ===== v109: 익명 순위 =====
 var RANK={cache:new Map(),timer:null,last:'',off:false};
 function rankQuery(){
@@ -1221,7 +1224,9 @@ async function runRank(){
   let r=RANK.cache.get(key);
   if(!r){box.innerHTML='<div class="rk-empty">비교 데이터를 불러오는 중…</div>';
     try{const h={'apikey':COLLECT.key,'Content-Type':'application/json'};if(/^eyJ/.test(COLLECT.key))h.Authorization='Bearer '+COLLECT.key;
-      const res=await fetch(COLLECT.url.replace(/\/$/,'')+'/rest/v1/rpc/calc_rank',{method:'POST',headers:h,body:JSON.stringify({q:{...q,chars:q.chars.map(({key,spd})=>({key,spd}))}})});
+      const rb=JSON.stringify({q:{...q,chars:q.chars.map(({key,spd})=>({key,spd}))}}),base=COLLECT.url.replace(/\/$/,'')+'/rest/v1/rpc/';
+      let res=await fetch(base+(RANK.fn||'calc_rank_v2'),{method:'POST',headers:h,body:rb});
+      if(res.status===404&&!RANK.fn){RANK.fn='calc_rank';res=await fetch(base+'calc_rank',{method:'POST',headers:h,body:rb});} // 새 함수가 없으면 기존 함수로
       if(res.status===404){RANK.off=true;sec.hidden=true;return;} // DB에 함수가 아직 없음
       if(!res.ok)throw new Error('HTTP '+res.status);
       r=await res.json();RANK.cache.set(key,r);}

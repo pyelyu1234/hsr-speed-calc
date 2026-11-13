@@ -65,7 +65,7 @@ tr.det td{background:#120f22;font-size:12px;color:var(--muted)}
 <body>
 <div class="wrap">
   <h1><span>속도 계산기</span> 사용 통계</h1>
-  <p class="sub">주인님 전용 · 방문당 마지막 세팅 1건 기준 · 시간은 한국 시간</p>
+  <p class="sub">주인님 전용 · 기본: 한 사람(브라우저)당 콘텐츠별 최신 1건 · 시간은 한국 시간</p>
 
   <!-- 로그인 -->
   <div class="card" id="loginCard">
@@ -97,7 +97,10 @@ tr.det td{background:#120f22;font-size:12px;color:var(--muted)}
         </div>
       </div>
       <div class="row" style="margin-top:10px;justify-content:space-between">
-        <label class="note" style="cursor:pointer"><input type="checkbox" id="exMine" style="vertical-align:-3px"> 이 기기의 계산기 사용은 수집 안 함 (내 테스트 제외)</label>
+        <div class="row" style="gap:14px">
+          <label class="note" style="cursor:pointer"><input type="checkbox" id="allRec" style="vertical-align:-3px"> 모든 기록 보기 (사람당 1건으로 줄이지 않음)</label>
+          <label class="note" style="cursor:pointer"><input type="checkbox" id="exMine" style="vertical-align:-3px"> 이 기기의 계산기 사용은 수집 안 함 (내 테스트 제외)</label>
+        </div>
         <div class="row"><span class="note" id="loadedAt"></span><button class="btn" id="reload">새로고침</button><button class="btn" id="logout">로그아웃</button></div>
       </div>
       <p class="err" id="dashErr"></p>
@@ -189,11 +192,12 @@ async function fetchAll(){
 }
 
 /* ── 데이터 ── */
-let ALL=[],F={period:'all',mode:'all'},recentN=30;
-function prep(rows){
-  // visit_id가 있으면 방문당 최신 1건만 (DB 트리거가 이미 정리하지만 한 번 더)
+let RAW=[],ALL=[],F={period:'all',mode:'all',all:false},recentN=30;
+function prep(rows,all){
+  // 기본: 한 사람(session_id)당 콘텐츠별 최신 1건 · 모든 기록 보기: 방문당 최신 1건
   const seen=new Set(),out=[];
-  rows.forEach(r=>{if(r.visit_id){if(seen.has(r.visit_id))return;seen.add(r.visit_id);}
+  rows.forEach(r=>{const k=all?(r.visit_id?'v:'+r.visit_id:null):(r.session_id?'s:'+r.session_id+'|'+r.mode:null);
+    if(k){if(seen.has(k))return;seen.add(k);}
     r._d=new Date(r.created_at);r._party=Array.isArray(r.party)?r.party:[];r._res=r.results||{};r._set=r.settings||{};out.push(r);});
   return out;
 }
@@ -238,7 +242,7 @@ function render(){
   const ahaVals=rows.map(r=>+r._res.aha).filter(x=>isFinite(x));
   const ahaSpd=rows.map(r=>+r._res.ahaSpd).filter(x=>isFinite(x)&&x>0);
   $('tiles').innerHTML=[
-    ['기록 수',n,'방문 1회 = 1건'],
+    ['기록 수',n,F.all?'방문 1회 = 1건':'사람당 콘텐츠별 최신 1건'],
     ['사용자 수',users,'브라우저 기준 추정'],
     ['오늘 기록',nToday,'필터와 무관'],
     ['평균 아하 타임',ahaVals.length?r1(ahaVals.reduce((a,b)=>a+b,0)/ahaVals.length)+'회':'-','설정한 사이클 기준'],
@@ -320,6 +324,7 @@ function renderRecent(){
 function seg(id,key){$(id).querySelectorAll('button').forEach(b=>b.onclick=()=>{F[key]=b.dataset.v;$(id).querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));recentN=30;render();});}
 seg('fPeriod','period');seg('fMode','mode');
 $('charSel').onchange=renderChar;
+$('allRec').onchange=e=>{F.all=e.target.checked;ALL=prep(RAW,F.all);recentN=30;render();};
 $('more').onclick=()=>{recentN+=50;renderRecent();};
 try{$('exMine').checked=localStorage.getItem('hsrOptOut')==='1';}catch(e){}
 $('exMine').onchange=e=>{try{localStorage.setItem('hsrOptOut',e.target.checked?'1':'0');}catch(_){}};
@@ -328,7 +333,7 @@ function showLogin(msg){$('dash').classList.add('hidden');$('loginCard').classLi
 async function load(){
   $('dashErr').textContent='';$('reload').disabled=true;$('reload').textContent='불러오는 중…';
   try{
-    ALL=prep(await fetchAll());
+    RAW=await fetchAll();ALL=prep(RAW,F.all);
     $('loginCard').classList.add('hidden');$('dash').classList.remove('hidden');
     $('loadedAt').textContent=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date())+' 기준';
     if(!ALL.length)$('dashErr').textContent='데이터가 0건이에요. 아직 기록이 없거나, SQL의 읽기 권한 이메일이 로그인한 이메일과 다를 수 있어요.';
