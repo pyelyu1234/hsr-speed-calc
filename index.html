@@ -210,17 +210,6 @@ section.fold summary:hover h2::after{color:var(--accent)}
     <p class="note" id="ownedNote" style="margin:-4px 0 10px"></p>
     <div class="ahabox" id="ahaStats"></div>
     <div class="formula" id="ahaFormula"></div>
-    <details class="adv" style="margin-top:10px">
-      <summary>공식 계수 수정 (출시 후 수치가 바뀌면 여기서 조정)</summary>
-      <div class="row" style="margin-top:8px">
-        <label class="f">에이언즈 아하 없을 때 기본 속도 <input type="number" id="ahaBase" step="1"></label>
-        <label class="f">1위 환락 계수 <input type="number" id="c1" step="0.01"></label>
-        <label class="f">2위 환락 계수 <input type="number" id="c2" step="0.01"></label>
-        <label class="f">3위 환락 계수 <input type="number" id="c3" step="0.005"></label>
-        <label class="f">4위 환락 계수 <input type="number" id="c4" step="0.005"></label>
-      </div>
-      <button class="btn" id="resetCoef" style="margin-top:6px">계수 기본값으로</button>
-    </details>
   </section>
   <section>
     <h2>라운드별 행동 · 한 번 더 행동까지</h2>
@@ -903,7 +892,7 @@ function actionsIn(spd,av,adv=0){if(spd<=0)return 0;const iv=10000/spd,first=iv*
 const needSpd=(k,T,adv=0)=>10000*Math.max(0,k-Math.min(adv,100)/100)/T;
 
 function ahaInfo(){
-  const k=state.coef, cs=active();
+  state.coef={...DEFAULT_COEF};const k=state.coef, cs=active();
   const aeon=cs.find(isAeon);
   const own=state.owned||{has:false,sig:0};
   let base,label;
@@ -1126,7 +1115,7 @@ function renderFx(){
 
 function bindCoef(){
   const k=state.coef;
-  ['ahaBase','c1','c2','c3','c4'].forEach(id=>{const el=document.getElementById(id);el.value=k[id];el.oninput=()=>{k[id]=el.value;update();};});
+  ['ahaBase','c1','c2','c3','c4'].forEach(id=>{const el=document.getElementById(id);if(!el)return;el.value=k[id];el.oninput=()=>{k[id]=el.value;update();};});
   if(!state.owned)state.owned={has:false,sig:0};
   const ow=document.getElementById('owned');
   const osw=document.getElementById('ownedSigWrap');osw.innerHTML=sigSlider('id="ownedSig"',parseInt(state.owned.sig)||0,'보유 중인 에이언즈 아하의 전용 광추');
@@ -1147,7 +1136,7 @@ function bindCoef(){
   const bc=document.getElementById('bpCycles');bc.value=state.bpCycles;bc.oninput=()=>{state.bpCycles=bc.value;update();};
 }
 document.getElementById('reset').onclick=()=>{state={chars:defaultChars(),coef:{...DEFAULT_COEF},cycles:3,bpCycles:3,owned:{has:false,sig:0},mode:'moc',buffOn:false,teamBuff:{pct:0},presetBuffs:{yg:false,gx:false}};state.fx=null;state.plan={};PICK=null;bindCoef();renderChars();};
-document.getElementById('resetCoef').onclick=()=>{state.coef={...DEFAULT_COEF};bindCoef();update();};
+
 // ===== 익명 사용 통계 수집 (Supabase) — GitHub Pages에서만 동작 =====
 const COLLECT={url:'https://nrxpnhwbpculidkzhjcw.supabase.co',key:'sb_publishable_X0RvjkuOwhaxJFXBRkJk8A_z3nSSVyV',table:'calc_logs'}; // url: https://xxxx.supabase.co · key: publishable(anon) 키
 const collectOn=()=>!!(COLLECT.url&&COLLECT.key)&&/github\.io$/.test(location.hostname);
