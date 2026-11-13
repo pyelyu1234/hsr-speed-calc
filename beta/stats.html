@@ -60,6 +60,10 @@ tr.rec:hover td{background:var(--panel2)}
 tr.det td{background:#120f22;font-size:12px;color:var(--muted)}
 .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:1px 8px;margin:2px 3px 2px 0;font-size:12px;color:var(--text);white-space:nowrap}
 .hidden{display:none!important}
+.mtabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:5px}
+.mtab{background:none;border:none;color:var(--muted);font-size:15px;font-weight:700;padding:11px 8px;border-radius:10px;cursor:pointer}
+.mtab.on{background:var(--accent);color:var(--bg)}
+.mcnt{font-size:12px;font-weight:600;opacity:.8}
 </style>
 </head>
 <body>
@@ -81,18 +85,16 @@ tr.det td{background:#120f22;font-size:12px;color:var(--muted)}
 
   <!-- 대시보드 -->
   <div id="dash" class="hidden">
+    <div class="mtabs" id="mTabs">
+      <button class="mtab on" data-v="moc">혼돈의 기억 <span class="mcnt" data-c="moc"></span></button>
+      <button class="mtab" data-v="aa">이상중재 <span class="mcnt" data-c="aa"></span></button>
+    </div>
     <div class="card">
       <div class="row" style="justify-content:space-between">
         <div class="row">
           <span class="note">기간</span>
           <div class="seg" id="fPeriod">
             <button class="btn on" data-v="all">전체</button><button class="btn" data-v="1">오늘</button><button class="btn" data-v="7">7일</button><button class="btn" data-v="30">30일</button>
-          </div>
-        </div>
-        <div class="row">
-          <span class="note">콘텐츠</span>
-          <div class="seg" id="fMode">
-            <button class="btn on" data-v="all">전체</button><button class="btn" data-v="moc">혼돈의 기억</button><button class="btn" data-v="aa">이상중재</button>
           </div>
         </div>
       </div>
@@ -192,7 +194,7 @@ async function fetchAll(){
 }
 
 /* ── 데이터 ── */
-let RAW=[],ALL=[],F={period:'all',mode:'all',all:false},recentN=30;
+let RAW=[],ALL=[],F={period:'all',mode:'moc',all:false},recentN=30;
 function prep(rows,all){
   // 기본: 한 사람(session_id)당 콘텐츠별 최신 1건 · 모든 기록 보기: 방문당 최신 1건
   const seen=new Set(),out=[];
@@ -204,7 +206,7 @@ function prep(rows,all){
 function filtered(){
   const now=Date.now(),today=kstDay(new Date());
   return ALL.filter(r=>{
-    if(F.mode!=='all'&&r.mode!==F.mode)return false;
+    if(r.mode!==F.mode)return false;
     if(F.period==='1')return kstDay(r._d)===today;
     if(F.period!=='all')return now-r._d.getTime()<=(+F.period)*86400000;
     return true;});
@@ -238,20 +240,21 @@ const median=a=>{if(!a.length)return 0;const s=a.slice().sort((x,y)=>x-y),h=s.le
 function render(){
   const rows=filtered(),n=rows.length;
   const users=new Set(rows.map(r=>r.session_id).filter(Boolean)).size;
-  const today=kstDay(new Date()),nToday=ALL.filter(r=>kstDay(r._d)===today).length;
+  const today=kstDay(new Date()),nToday=ALL.filter(r=>r.mode===F.mode&&kstDay(r._d)===today).length;
+  document.querySelectorAll('.mcnt').forEach(el=>{el.textContent=ALL.filter(r=>r.mode===el.dataset.c).length+'건';});
   const ahaVals=rows.map(r=>+r._res.aha).filter(x=>isFinite(x));
   const ahaSpd=rows.map(r=>+r._res.ahaSpd).filter(x=>isFinite(x)&&x>0);
   $('tiles').innerHTML=[
     ['기록 수',n,F.all?'방문 1회 = 1건':'사람당 콘텐츠별 최신 1건'],
     ['사용자 수',users,'브라우저 기준 추정'],
-    ['오늘 기록',nToday,'필터와 무관'],
+    ['오늘 기록',nToday,'기간 필터와 무관'],
     ['평균 아하 타임',ahaVals.length?r1(ahaVals.reduce((a,b)=>a+b,0)/ahaVals.length)+'회':'-','설정한 사이클 기준'],
     ['평균 아하 속도',ahaSpd.length?r1(ahaSpd.reduce((a,b)=>a+b,0)/ahaSpd.length):'-','']
   ].map(([k,v,s])=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
 
   // 일별
   const days=[];for(let i=29;i>=0;i--){const d=new Date(Date.now()-i*86400000);days.push(kstDay(d));}
-  const byDay={};ALL.filter(r=>F.mode==='all'||r.mode===F.mode).forEach(r=>{const k=kstDay(r._d);byDay[k]=(byDay[k]||0)+1;});
+  const byDay={};ALL.filter(r=>r.mode===F.mode).forEach(r=>{const k=kstDay(r._d);byDay[k]=(byDay[k]||0)+1;});
   vbars($('daily'),days.map(d=>({label:d,short:d.slice(5).replace('-','/'),v:byDay[d]||0,tip:`${d}: <b>${byDay[d]||0}건</b>`})),{labelEvery:5});
 
   // 캐릭터 사용률
@@ -322,7 +325,8 @@ function renderRecent(){
 
 /* ── 이벤트 ── */
 function seg(id,key){$(id).querySelectorAll('button').forEach(b=>b.onclick=()=>{F[key]=b.dataset.v;$(id).querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));recentN=30;render();});}
-seg('fPeriod','period');seg('fMode','mode');
+seg('fPeriod','period');
+document.querySelectorAll('#mTabs .mtab').forEach(b=>b.onclick=()=>{F.mode=b.dataset.v;document.querySelectorAll('#mTabs .mtab').forEach(x=>x.classList.toggle('on',x===b));recentN=30;render();});
 $('charSel').onchange=renderChar;
 $('allRec').onchange=e=>{F.all=e.target.checked;ALL=prep(RAW,F.all);recentN=30;render();};
 $('more').onclick=()=>{recentN+=50;renderRecent();};
