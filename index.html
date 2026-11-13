@@ -133,6 +133,15 @@ section.fold summary:hover h2::after{color:var(--accent)}
   .ahabox .stat:nth-child(2){grid-column:1/-1;order:-1}
   .ahabox .stat{padding:10px}
 }
+.rk-hd{font-size:13px;color:var(--muted);margin:0 0 8px}
+.rk-hd b{color:var(--text)}
+.rk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.rk-top{font-size:22px;font-weight:800;color:var(--accent)}
+.rk-bar{position:relative;height:6px;border-radius:3px;background:var(--line);margin:8px 0 4px}
+.rk-bar i{position:absolute;top:-4px;width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--panel2);transform:translateX(-50%)}
+.rk-ends{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.rk-tbl td .rk-bar{margin:6px 0 0;min-width:90px}
+.rk-empty{font-size:13px;color:var(--muted);background:var(--panel2);border:1px dashed var(--line);border-radius:10px;padding:10px 12px}
 </style>
 </head>
 <body>
@@ -211,6 +220,12 @@ section.fold summary:hover h2::after{color:var(--accent)}
     <div class="ahabox" id="ahaStats"></div>
     <div class="formula" id="ahaFormula"></div>
   </section>
+  <section id="secRank" hidden>
+    <h2>다른 사용자와 비교 <span class="tag">익명</span></h2>
+    <div id="rankBox"></div>
+    <p class="note" style="margin:10px 0 0">같은 콘텐츠의 다른 사용자 기록과 비교해요 (한 사람당 파티별 최신 1건). 평균과 순위 같은 집계만 보여주고, 다른 사람의 개별 기록은 볼 수 없어요. 비교 대상이 5명 미만인 항목은 표시하지 않아요.</p>
+  </section>
+
   <section>
     <h2>라운드별 행동 · 한 번 더 행동까지</h2>
     <div class="row" style="margin-bottom:10px">
@@ -234,7 +249,7 @@ section.fold summary:hover h2::after{color:var(--accent)}
   </section>
   </div>
   </div>
-  <p class="note" id="collectNote" style="display:none;margin:18px 4px 0;text-align:center;font-size:12px;line-height:1.6">이 계산기는 개선과 통계를 위해 입력한 <b>파티 구성 · 캐릭터별 속도 · 성혼/광추 · 계산 결과</b>를 익명으로 수집해요. 페이지를 나갈 때 <b>마지막 세팅 1건</b>만 저장되고, 이름 등 개인을 식별할 수 있는 정보는 수집하지 않아요.<br><label style="white-space:nowrap;cursor:pointer"><input type="checkbox" id="optOut"> 수집하지 않기</label></p>
+  <p class="note" id="collectNote" style="display:none;margin:18px 4px 0;text-align:center;font-size:12px;line-height:1.6">이 계산기는 개선과 통계를 위해 입력한 <b>파티 구성 · 캐릭터별 속도 · 성혼/광추 · 계산 결과</b>를 익명으로 수집해요. 입력을 멈추면 10초 뒤 저장하고 방문당 <b>마지막 세팅 1건</b>만 남아요. 「다른 사용자와 비교」는 평균·순위 같은 익명 집계만 보여줘요. 이름 등 개인을 식별할 수 있는 정보는 수집하지 않아요.<br><label style="white-space:nowrap;cursor:pointer"><input type="checkbox" id="optOut"> 수집하지 않기</label></p>
 </div>
 
 <script>
@@ -1170,7 +1185,8 @@ function collectPayload(){
 function visitId(){try{let v=sessionStorage.getItem('hsrVisit');if(!v){v=Math.random().toString(36).slice(2)+Date.now().toString(36);sessionStorage.setItem('hsrVisit',v);}return v;}catch(e){return null;}}
 let collectTouched=false;try{collectTouched=!!localStorage.getItem('hsrSpdCalc');}catch(e){} // 저장된 세팅을 불러온 경우도 실제 데이터
 ['input','change','drop','pointerup'].forEach(t=>document.addEventListener(t,ev=>{if(ev.target&&ev.target.id==='optOut')return;if(t==='pointerup'&&!(ev.target.closest&&ev.target.closest('button,[draggable],select,input')))return;collectTouched=true;},true));
-function scheduleCollect(){} // 계산할 때마다 보내지 않음
+let collectTimer=null;
+function scheduleCollect(){if(!collectOn()||optedOut())return;clearTimeout(collectTimer);collectTimer=setTimeout(flushCollect,10000);} // 입력을 멈추고 10초 뒤 저장 (같은 방문은 DB에서 덮어씀)
 function flushCollect(){if(!collectOn()||optedOut()||!collectTouched)return;
   let body;try{body=collectPayload();}catch(e){return;}if(!body)return;
   const vid=visitId();body.visit_id=vid;
@@ -1184,6 +1200,52 @@ window.addEventListener('pagehide',flushCollect);
   c.onchange=()=>{try{localStorage.setItem('hsrOptOut',c.checked?'1':'0');}catch(e){}};})();
 
 bindCoef();bindSettings();renderChars();
+// ===== v109: 익명 순위 =====
+var RANK={cache:new Map(),timer:null,last:'',off:false};
+function rankQuery(){
+  const b=collectPayload();if(!b||!b.party.length)return null;
+  return {mode:b.mode,session_id:anonId(),keys:b.party.map(p=>p.key),cycles:b.settings.cycles,aha:b.results.aha,ahaSpd:b.results.ahaSpd,
+    chars:b.party.map(p=>({key:p.key,name:p.name,spd:p.spd}))};
+}
+function scheduleRank(){
+  const sec=document.getElementById('secRank');if(!sec)return;
+  if(RANK.off||!(COLLECT.url&&COLLECT.key)||!/github\.io$/.test(location.hostname)){sec.hidden=true;return;}
+  clearTimeout(RANK.timer);RANK.timer=setTimeout(runRank,1200);
+}
+async function runRank(){
+  let q;try{q=rankQuery();}catch(e){return;}
+  const sec=document.getElementById('secRank'),box=document.getElementById('rankBox');
+  if(!q){sec.hidden=true;return;}
+  const key=JSON.stringify(q);if(key===RANK.last)return;RANK.last=key;
+  sec.hidden=false;
+  let r=RANK.cache.get(key);
+  if(!r){box.innerHTML='<div class="rk-empty">비교 데이터를 불러오는 중…</div>';
+    try{const h={'apikey':COLLECT.key,'Content-Type':'application/json'};if(/^eyJ/.test(COLLECT.key))h.Authorization='Bearer '+COLLECT.key;
+      const res=await fetch(COLLECT.url.replace(/\/$/,'')+'/rest/v1/rpc/calc_rank',{method:'POST',headers:h,body:JSON.stringify({q:{...q,chars:q.chars.map(({key,spd})=>({key,spd}))}})});
+      if(res.status===404){RANK.off=true;sec.hidden=true;return;} // DB에 함수가 아직 없음
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      r=await res.json();RANK.cache.set(key,r);}
+    catch(e){if(RANK.last===key){box.innerHTML='<div class="rk-empty">지금은 비교 데이터를 불러올 수 없어요.</div>';RANK.last='';}return;}
+    if(RANK.last!==key)return;}
+  renderRank(q,r);
+}
+function topPct(o){const n=o.n,gt=n-o.below-o.eq;return Math.max(0,Math.min(100,(gt+o.eq*0.5)/n*100));}
+function rankBar(top){const pos=100-top;return `<div class="rk-bar"><i style="left:${Math.max(3,Math.min(97,pos))}%"></i></div>`;}
+function topTxt(o){const t=topPct(o);return o.below===o.n?'최고 기록':o.below+o.eq===0?'가장 낮음':`상위 ${Math.max(1,Math.round(t))}%`;}
+function renderRank(q,r){
+  const box=document.getElementById('rankBox');if(!r){box.innerHTML='';return;}
+  const k=r.k||5,mname=(MODES[q.mode]||{}).name||q.mode;
+  let h=`<p class="rk-hd">${mname} 기록 <b>${r.n_mode}명</b> · 같은 파티 <b>${r.party_n}명</b></p>`;
+  const cards=[];
+  if(r.aha)cards.push(`<div class="stat"><div class="k">같은 파티 중 아하 타임 (${q.cycles}사이클)</div><div class="rk-top">${topTxt(r.aha)}</div><div class="d">내 ${q.aha}회 · 평균 ${r.aha.avg}회 · ${r.aha.n}명 기준</div>${rankBar(topPct(r.aha))}<div class="rk-ends"><span>적음</span><span>많음</span></div></div>`);
+  if(r.ahaSpd)cards.push(`<div class="stat"><div class="k">같은 파티 중 아하 타임 속도</div><div class="rk-top">${topTxt(r.ahaSpd)}</div><div class="d">내 ${f1(q.ahaSpd)} · 평균 ${r.ahaSpd.avg} · ${r.ahaSpd.n}명 기준</div>${rankBar(topPct(r.ahaSpd))}<div class="rk-ends"><span>느림</span><span>빠름</span></div></div>`);
+  h+=cards.length?`<div class="rk-grid">${cards.join('')}</div>`:`<div class="rk-empty" style="margin-bottom:12px">같은 파티 기록이 ${r.party_n}명이라 아직 비교할 수 없어요 (${k}명부터).</div>`;
+  const byKey=Object.fromEntries((r.chars||[]).map(c=>[c.key,c]));
+  h+=`<div class="tbl"><table class="rk-tbl"><tr><th>캐릭터 속도</th><th>내 속도</th><th>평균</th><th>빠른 순</th></tr>`+q.chars.map(c=>{const o=byKey[c.key];
+    if(!o)return `<tr><td>${c.name}</td><td>${f1(c.spd)}</td><td colspan="2" class="note" style="text-align:right">표본 부족 (${k}명 미만)</td></tr>`;
+    const d=c.spd-o.avg;return `<tr><td>${c.name}</td><td>${f1(c.spd)}</td><td>${f1(o.avg)} <span class="note" style="color:${d>=0?'var(--ok)':'var(--warn)'}">${d>=0?'+':''}${f1(d)}</span></td><td><b>${topTxt(o)}</b> <span class="note">${o.n}명</span>${rankBar(topPct(o))}</td></tr>`;}).join('')+'</table></div>';
+  box.innerHTML=h;
+}
 // ===== v105: 접기 요약 · 결과 요약 바 =====
 function afterUpdate(){
   try{
@@ -1201,6 +1263,7 @@ function afterUpdate(){
       sa.textContent=on.length?on.join(' · ')+' 적용 중':'적용 없음';}
   }catch(e){}
   renderSumBar();
+  try{scheduleRank();}catch(e){} // 초기화 전 호출은 무시 (마지막에 다시 호출됨)
 }
 var resultVisible=false;
 function renderSumBar(){
