@@ -111,7 +111,6 @@ a{color:var(--accent)}
     <div class="row" style="margin-top:6px">
       <label class="f">기타 파티 전체 속도 버프 % <input type="number" id="tPct" step="0.1"></label>
     </div>
-    <div class="note" style="margin-top:6px">메신저 4세트 속도 버프는 「유물 · 장신구」에서 설정해요.</div>
   </section>
 
   <section>
@@ -279,7 +278,7 @@ const CFG={
 const ACT_NAME={skill:'전투 스킬',basic:'일반 공격',enh:'강화 일반 공격',spx:'전투 스킬 → 함정 → 강화 일반 공격',swenh:'강화 일반 공격 (무적 플레이어)'};
 const ACT_SHORT={skill:'전',basic:'평',enh:'강',spx:'스',swenh:'강'};
 const ROPE=19.4, ORN=5;
-const ULT_ON_ALLY=new Set(['pearl','trailblazer','yaoguang']); // 아군 대상 필살기 (메신저 4세트 발동 대상)
+const ULT_ON_ALLY=new Set(['pearl','trailblazer','yaoguang']); // 아군 대상 필살기
 function cfgOf(k){return CFG[k]||{short:'?',acts:['skill','basic']};}
 function eidOf(fx,k){return parseInt((fx.eid||{})[k])||0;}
 function lcOf(fx,k){return !!(fx.lc||{})[k];}
@@ -472,7 +471,7 @@ function simAll(T,ov){
       attackBy(s,t);
       if(swState&&swUses<=0){swState=false;hid=eidOf(fx,'silverwolf999')>=1?hid*0.2:0;mark(t,'은랑 [무적 플레이어] 종료','swEnd');}
     }
-    allyAct(s,t);if(!info.extra){tickR(s,t);if(s.pct&&s.pct.msgr)setPct(s,'msgr',0,t);}evRec.post=snap(); // 메신저 버프는 해당 아군의 다음 일반 턴 종료 시 해제 // 보너스 턴에는 지속 시간 감소 없음
+    allyAct(s,t);if(!info.extra)tickR(s,t);evRec.post=snap(); // 보너스 턴에는 지속 시간 감소 없음 // 보너스 턴에는 지속 시간 감소 없음
     runFox(t);
     return evRec;
   }
@@ -523,7 +522,6 @@ function simAll(T,ov){
           if(lcOf(fx,'silverwolf999')&&swLcReady){swLcReady=false;swLcBasic=0;laughGain(swLcLaugh(fx),t);}
           adv(s,t,100);fired=true;}
         const um=marks.slice(ml).find(m=>m.who===k&&m.k!=null); // 이번에 이 캐릭터가 쓴 필살기
-        if(um&&ULT_ON_ALLY.has(k)&&(fx.msgr||[]).includes(s.u.slot)){chars.forEach(c=>setPct(c,'msgr',12,t));mark(t,`메신저 4세트 (${s.u.name} 필살기): 아군 전체 속도 +12% (1턴)`,'msgr');}
         if(um&&(fx.eagle||[]).includes(s.u.slot)){adv(s,t,25);mark(t,`매 4세트 (${s.u.name}): 필살기 후 행동 게이지 +25%`,'eagle');}
         if(um){um.ui=ultCount[k]||0;ultCount[k]=um.ui+1;allyAct(s,t);um.pre=sb;um.post=snap();}
         if(um&&pearlS&&s===pTgt&&pearlA3){pearlA3=false;eGain(pearlS,90,true);mark(t,`펄 추가 능력 3: ${s.u.name} 필살기 → 펄 에너지 +90`,'pearlA3');}
@@ -1034,11 +1032,11 @@ function renderFx(){
     el.value=act.some(c=>c.i===num(val))?String(num(val)):'-1';};
   ['orns','vonw','msgr','eagle'].forEach(k=>{if(!fx[k])fx[k]=[];});
   const rb=document.getElementById('fxRelic');
-  const setOf=c=>fx.eagle.includes(c.i)?'eagle':fx.msgr.includes(c.i)?'msgr':'';
+  const setOf=c=>fx.eagle.includes(c.i)?'eagle':'';
   const ornOf=c=>fx.orns.includes(c.i)?'hwan':fx.vonw.includes(c.i)?'vonw':(((fx.er||{})[c.key]||{}).orn?'er5':'');
   const rh=act.length?act.map(c=>{const k=c.key,en=cfgOf(k).energy,rope=!!(((fx.er||{})[k]||{}).rope);
     return `<div class="stat"><div style="font-weight:700;margin-bottom:6px"><span class="dot" style="background:${COLORS[c.i]}"></span>${c.name}</div>
-      <label class="f">유물 4세트 <select data-rset="${c.i}" style="width:150px"><option value="">없음 · 기타</option><option value="eagle">매</option><option value="msgr"${ULT_ON_ALLY.has(k)?'':' disabled'}>메신저</option></select></label>
+      <label class="f">유물 4세트 <select data-rset="${c.i}" style="width:150px"><option value="">없음 · 기타</option><option value="eagle">매</option></select></label>
       <label class="f">장신구 <select data-rorn="${c.i}" style="width:150px"><option value="">없음 · 기타</option><option value="hwan">환커공</option><option value="vonw">바커공</option>${en?'<option value="er5">에충 장신구 (+5%)</option>':''}</select></label>
       ${en?`<label class="chk"><input type="checkbox" data-rrope="${k}"${rope?' checked':''}> 에너지 회복 효율 매듭 (+19.4%)</label>`:''}
       <div class="note" data-rnote="${c.i}"></div></div>`;}).join(''):'<div class="note">파티에 캐릭터가 없어요.</div>';
@@ -1050,11 +1048,10 @@ function renderFx(){
     rb.querySelectorAll('[data-rrope]').forEach(el=>el.onchange=()=>{const fx=fxState();['orns','vonw','msgr','eagle'].forEach(k=>{if(!fx[k])fx[k]=[];});const k=el.dataset.rrope;fx.er=fx.er||{};fx.er[k]=fx.er[k]||{};fx.er[k].rope=el.checked;update();});}
   act.forEach(c=>{const a=rb.querySelector(`[data-rset="${c.i}"]`),b=rb.querySelector(`[data-rorn="${c.i}"]`),n=rb.querySelector(`[data-rnote="${c.i}"]`);
     if(a)a.value=setOf(c);if(b)b.value=ornOf(c);
-    const notes=[];const DESC={eagle:'매: 필살기 후 본인 행동 게이지 +25%',msgr:'메신저: 아군 대상 필살기 시 아군 전체 속도 +12% (1턴)',hwan:'환커공: 전투 시작 행동 게이지 +40%',vonw:'바커공: 에너지 회복 효율 +5% · 속도 120 이상 시 전투 시작 행동 게이지 +40%',er5:'에충 장신구: 에너지 회복 효율 +5%'};
+    const notes=[];const DESC={eagle:'매: 필살기 후 본인 행동 게이지 +25%',hwan:'환커공: 전투 시작 행동 게이지 +40%',vonw:'바커공: 에너지 회복 효율 +5% · 속도 120 이상 시 전투 시작 행동 게이지 +40%',er5:'에충 장신구: 에너지 회복 효율 +5%'};
     if(setOf(c))notes.push(DESC[setOf(c)]);if(ornOf(c))notes.push(DESC[ornOf(c)]);
     if(fx.vonw.includes(c.i)&&num(c.spd)<120)notes.push('속도 120 미만이라 바커공 행동 게이지 효과 없음');
     if(fx.eagle.includes(c.i)&&c.key==='silverwolf999')notes.push('은랑은 필살기 자체가 행동 게이지 100%라 매 효과 없음');
-    if(!ULT_ON_ALLY.has(c.key)&&!setOf(c))notes.push('메신저는 아군 대상 필살기 캐릭터만 선택 가능');
     if(n)n.innerHTML=notes.map(x=>`<div>· ${x}</div>`).join('');});
 }
 
@@ -1097,7 +1094,7 @@ function collectPayload(){
   o.marks.filter(m=>m.k!=null&&m.t<=T+EPS).forEach(m=>{ults[m.who]=(ults[m.who]||0)+1;});
   const planEdits=Object.values(state.plan||{}).reduce((a,p)=>a+Object.keys(p.a||{}).length+(p.hold||[]).length+Object.keys(p.ud||{}).length,0);
   return {session_id:anonId(),mode:state.mode,party,
-    settings:{cycles:cyc,buffOn:!!state.buffOn,presetBuffs:state.presetBuffs||{},teamPct:num((state.teamBuff||{}).pct),wpTarget:fx.wpTarget,pearlTgt:fx.pearlTgt,tbTgt:fx.tbTgt,swUlt:num(fx.swUlt)||60,wavCost:num(fx.wavCost)||130,orns:fx.orns||[],vonw:fx.vonw||[],msgr:fx.msgr||[],eagle:fx.eagle||[],planEdits},
+    settings:{cycles:cyc,buffOn:!!state.buffOn,presetBuffs:state.presetBuffs||{},teamPct:num((state.teamBuff||{}).pct),wpTarget:fx.wpTarget,pearlTgt:fx.pearlTgt,tbTgt:fx.tbTgt,swUlt:num(fx.swUlt)||60,wavCost:num(fx.wavCost)||130,orns:fx.orns||[],vonw:fx.vonw||[],eagle:fx.eagle||[],planEdits},
     results:{T,ahaSpd:Math.round(ahaInfo().spd*10)/10,aha,ahaBonus,actions:acts,ults}};
 }
 let collectTimer=null,collectPending=null;
