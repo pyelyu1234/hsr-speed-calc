@@ -86,7 +86,7 @@ tr.det td{background:#120f22;font-size:12px;color:var(--muted)}
   <!-- 대시보드 -->
   <div id="dash" class="hidden">
     <div class="mtabs" id="mTabs">
-      <button class="mtab on" data-v="moc">혼돈의 기억 <span class="mcnt" data-c="moc"></span></button>
+      <button class="mtab on" data-v="moc">혼돈 <span class="mcnt" data-c="moc"></span></button>
       <button class="mtab" data-v="aa">이상중재 <span class="mcnt" data-c="aa"></span></button>
     </div>
     <div class="card">
@@ -160,7 +160,7 @@ tr.det td{background:#120f22;font-size:12px;color:var(--muted)}
 
 <script>
 const SB={url:'https://nrxpnhwbpculidkzhjcw.supabase.co',key:'sb_publishable_X0RvjkuOwhaxJFXBRkJk8A_z3nSSVyV',table:'calc_logs'};
-const MODE_NAME={moc:'혼돈의 기억',aa:'이상중재'};
+const MODE_NAME={moc:'혼돈',aa:'이상중재'};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const kstDay=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul'}).format(d);
