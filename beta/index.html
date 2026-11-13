@@ -262,12 +262,6 @@ tr.mine td{background:rgba(197,139,255,.08)}
     <div class="ahabox" id="ahaStats"></div>
     <div class="formula" id="ahaFormula"></div>
   </section>
-  <section id="secRank" hidden>
-    <h2>다른 사용자와 비교 <span class="tag">익명</span></h2>
-    <div id="rankBox"></div>
-    <p class="note" style="margin:10px 0 0">같은 콘텐츠의 다른 사용자 기록과 비교해요 (한 사람당 콘텐츠별 최신 세팅 1건). 평균과 순위 같은 집계만 보여주고, 다른 사람의 개별 기록은 볼 수 없어요. 비교 대상이 5명 미만인 항목은 표시하지 않아요. <a href="#rank" onclick="showView('rank');return false" style="color:var(--accent)">순위 · 통계 탭에서 자세히 보기 →</a></p>
-  </section>
-
   <section>
     <h2>라운드별 행동 · 한 번 더 행동까지</h2>
     <div class="row" style="margin-bottom:10px">
@@ -303,7 +297,7 @@ tr.mine td{background:rgba(197,139,255,.08)}
     </div>
     <p class="note" style="margin:4px 4px 0">한 사람(브라우저)당 콘텐츠별 최신 세팅 1건으로 집계해요. 다른 사람의 개별 기록은 볼 수 없고, 5명 미만인 항목은 표시하지 않아요. 내 기록은 비교에서 빠져요.</p>
   </div>
-  <p class="note" id="collectNote" style="display:none;margin:18px 4px 0;text-align:center;font-size:12px;line-height:1.6">이 계산기는 개선과 통계를 위해 입력한 <b>파티 구성 · 캐릭터별 속도 · 성혼/광추 · 계산 결과</b>를 익명으로 수집해요. 입력을 멈추면 10초 뒤 저장하고 방문당 <b>마지막 세팅 1건</b>만 남아요. 「다른 사용자와 비교」는 평균·순위 같은 익명 집계만 보여줘요. 이름 등 개인을 식별할 수 있는 정보는 수집하지 않아요.<br><label style="white-space:nowrap;cursor:pointer"><input type="checkbox" id="optOut"> 수집하지 않기</label></p>
+  <p class="note" id="collectNote" style="display:none;margin:18px 4px 0;text-align:center;font-size:12px;line-height:1.6">이 계산기는 개선과 통계를 위해 입력한 <b>파티 구성 · 캐릭터별 속도 · 성혼/광추 · 계산 결과</b>를 익명으로 수집해요. 입력을 멈추면 10초 뒤 저장하고 방문당 <b>마지막 세팅 1건</b>만 남아요. 「순위 · 통계」는 평균·비율 같은 익명 집계만 보여줘요. 이름 등 개인을 식별할 수 있는 정보는 수집하지 않아요.<br><label style="white-space:nowrap;cursor:pointer"><input type="checkbox" id="optOut"> 수집하지 않기</label></p>
 </div>
 
 <script>
@@ -1263,7 +1257,7 @@ function rankQuery(){
   return {mode:b.mode,session_id:anonId(),keys:b.party.map(p=>p.key),cycles:b.settings.cycles,aha:b.results.aha,ahaSpd:b.results.ahaSpd,
     chars:b.party.map(p=>({key:p.key,name:p.name,spd:p.spd}))};
 }
-function scheduleRank(){
+function scheduleRank(){return; // v115: 결과 칸의 '다른 사용자와 비교' 삭제 (순위 · 통계 탭으로 대체)
   const sec=document.getElementById('secRank');if(!sec)return;
   if(RANK.off||!(COLLECT.url&&COLLECT.key)||!/github\.io$/.test(location.hostname)){sec.hidden=true;return;}
   clearTimeout(RANK.timer);RANK.timer=setTimeout(runRank,1200);
