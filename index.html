@@ -142,6 +142,46 @@ section.fold summary:hover h2::after{color:var(--accent)}
 .rk-ends{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
 .rk-tbl td .rk-bar{margin:6px 0 0;min-width:90px}
 .rk-empty{font-size:13px;color:var(--muted);background:var(--panel2);border:1px dashed var(--line);border-radius:10px;padding:10px 12px}
+
+/* ===== v113 순위 탭 ===== */
+[hidden]{display:none!important}
+.vtabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:5px;margin:0 0 12px}
+.vtab,.mtab{background:none;border:none;color:var(--muted);font-size:15px;font-weight:700;padding:10px 8px;border-radius:10px;cursor:pointer;font-family:inherit}
+.vtab.on,.mtab.on{background:linear-gradient(90deg,#7b4dff,#c04dff);color:#fff}
+.mtabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:0 0 8px}
+.mtab{background:var(--panel);border:1px solid var(--line);font-size:14px;padding:8px}
+.mtab.on{border-color:transparent}
+.rvhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:2px 2px 10px}
+.rvhead .note{margin:0}
+@media(min-width:1180px){.rvgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}.rvgrid section{margin:0}}
+.rvh2{flex-wrap:wrap}.rvh2 select{width:auto;margin-left:auto;font-size:13px;padding:5px 8px}
+.rv-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+@media(max-width:560px){.rv-tiles{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.rv-tiles .v{font-size:16px!important}.rv-tiles .stat{padding:8px}}
+.rv-tiles .stat{padding:9px 10px}.rv-tiles .v{font-size:19px}
+.vbar{display:flex;align-items:flex-end;gap:2px;height:130px;border-bottom:1px solid var(--line);padding-top:16px}
+.vbar .c{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0}
+.vbar .f{width:100%;max-width:30px;background:#5b4f8f;border-radius:4px 4px 0 0;min-height:1px}
+.vbar .c.me .f{background:var(--accent)}
+.vbar .n{font-size:10px;color:var(--muted);margin-bottom:2px}
+.vbar .c.me .n{color:var(--accent);font-weight:700}
+.vlab{display:flex;gap:2px;margin-top:4px}.vlab span{flex:1;display:flex;justify-content:center;font-size:10px;color:var(--muted);min-width:0;white-space:nowrap}
+.vlab span.me{color:var(--accent);font-weight:700}
+.heat td.h{text-align:center;font-size:12px;padding:6px 3px;border-radius:4px}
+.heat td.h.me{outline:2px solid var(--accent);outline-offset:-2px}
+.rv-legend{font-size:11.5px;color:var(--muted);margin-top:6px}
+.rv-legend b{color:var(--accent)}
+tr.mine td{background:rgba(197,139,255,.08)}
+.rv-tag{font-size:10.5px;font-weight:700;color:var(--bg);background:var(--accent);border-radius:99px;padding:1px 6px;margin-left:4px}
+.pt-list{display:flex;flex-direction:column;gap:8px}
+.pt{display:flex;gap:12px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.pt.mine{border-color:var(--accent)}
+.pt-rank{font-size:20px;font-weight:800;color:var(--accent);min-width:22px;text-align:center;line-height:1.3}
+.pt-main{flex:1;min-width:0}
+.pt-mem{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:15px;font-weight:700;margin-bottom:6px}
+.pt-ch{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.pt-ch i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.pt-stats{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12.5px;color:var(--muted)}
+.pt-stats b{color:var(--text);font-size:13.5px}
 </style>
 </head>
 <body>
@@ -151,6 +191,7 @@ section.fold summary:hover h2::after{color:var(--accent)}
   <div class="sub">최종 속도 · 행동 값(AV) · 사이클별 행동 횟수 · 아하 타임 속도 · 속도 구간 계산 — 4.7 에이언즈 아하 대응</div>
   <div id="sumBar" class="sumbar" hidden><div class="sb-items" id="sbItems"></div><button class="btn primary" id="sbGo">결과 보기</button></div>
 
+  <div class="vtabs" id="vTabs"><button class="vtab on" data-view="calc">계산기</button><button class="vtab" data-view="rank">순위 · 통계</button></div>
   <nav class="qnav" id="qnav">
     <a href="#secInput">입력</a><a href="#secSet">캐릭터 설정</a><a href="#secResult">결과</a><a href="#secOrder">행동 순서</a>
   </nav>
@@ -224,7 +265,7 @@ section.fold summary:hover h2::after{color:var(--accent)}
   <section id="secRank" hidden>
     <h2>다른 사용자와 비교 <span class="tag">익명</span></h2>
     <div id="rankBox"></div>
-    <p class="note" style="margin:10px 0 0">같은 콘텐츠의 다른 사용자 기록과 비교해요 (한 사람당 콘텐츠별 최신 세팅 1건). 평균과 순위 같은 집계만 보여주고, 다른 사람의 개별 기록은 볼 수 없어요. 비교 대상이 5명 미만인 항목은 표시하지 않아요.</p>
+    <p class="note" style="margin:10px 0 0">같은 콘텐츠의 다른 사용자 기록과 비교해요 (한 사람당 콘텐츠별 최신 세팅 1건). 평균과 순위 같은 집계만 보여주고, 다른 사람의 개별 기록은 볼 수 없어요. 비교 대상이 5명 미만인 항목은 표시하지 않아요. <a href="#rank" onclick="showView('rank');return false" style="color:var(--accent)">순위 · 통계 탭에서 자세히 보기 →</a></p>
   </section>
 
   <section>
@@ -249,6 +290,18 @@ section.fold summary:hover h2::after{color:var(--accent)}
     <details style="margin-top:10px"><summary>목록으로 보기</summary><div class="tbl" style="margin-top:8px"><table id="timeline"></table></div></details>
   </section>
   </div>
+  </div>
+  <div id="rankView" hidden>
+    <div class="mtabs" id="rvMode"><button class="mtab" data-v="moc">혼돈</button><button class="mtab" data-v="aa">이상중재</button></div>
+    <div class="rvhead"><p class="note" id="rvInfo"></p><button class="btn" id="rvReload">새로고침</button></div>
+    <div id="rvMsg"></div>
+    <div class="rvgrid" id="rvBody">
+      <section id="rvMineSec"><h2>내 파티 상세 비교</h2><div id="rvMine"></div></section>
+      <section><h2 class="rvh2">캐릭터별 속도 분포 <select id="rvChar"></select></h2><div id="rvDist"></div></section>
+      <section><h2>캐릭터별 성혼 · 광추</h2><div id="rvEid"></div></section>
+      <section><h2>인기 파티 TOP 10</h2><div id="rvParties"></div></section>
+    </div>
+    <p class="note" style="margin:4px 4px 0">한 사람(브라우저)당 콘텐츠별 최신 세팅 1건으로 집계해요. 다른 사람의 개별 기록은 볼 수 없고, 5명 미만인 항목은 표시하지 않아요. 내 기록은 비교에서 빠져요.</p>
   </div>
   <p class="note" id="collectNote" style="display:none;margin:18px 4px 0;text-align:center;font-size:12px;line-height:1.6">이 계산기는 개선과 통계를 위해 입력한 <b>파티 구성 · 캐릭터별 속도 · 성혼/광추 · 계산 결과</b>를 익명으로 수집해요. 입력을 멈추면 10초 뒤 저장하고 방문당 <b>마지막 세팅 1건</b>만 남아요. 「다른 사용자와 비교」는 평균·순위 같은 익명 집계만 보여줘요. 이름 등 개인을 식별할 수 있는 정보는 수집하지 않아요.<br><label style="white-space:nowrap;cursor:pointer"><input type="checkbox" id="optOut"> 수집하지 않기</label></p>
 </div>
@@ -910,7 +963,7 @@ function renderPlan(T,SIM,sims){
 window.addEventListener('resize',()=>{clearTimeout(window.__rt);window.__rt=setTimeout(update,150);});
 
 function withBuff(on,fn){const o=state.buffOn;state.buffOn=on;try{return fn();}finally{state.buffOn=o;}}
-const MODES={moc:{name:'혼돈의 기억',first:150},aa:{name:'이상중재',first:300}};
+const MODES={moc:{name:'혼돈',first:150},aa:{name:'이상중재',first:300}};
 const FC=()=>(MODES[state.mode]||MODES.moc).first;
 function totalAV(n){return n<=0?0:FC()+100*(n-1);}
 function actionsIn(spd,av,adv=0){if(spd<=0)return 0;const iv=10000/spd,first=iv*Math.max(0,1-adv/100);
@@ -1251,6 +1304,104 @@ function renderRank(q,r){
     const d=c.spd-o.avg;return `<tr><td>${c.name}</td><td>${f1(c.spd)}</td><td>${f1(o.avg)} <span class="note" style="color:${d>=0?'var(--ok)':'var(--warn)'}">${d>=0?'+':''}${f1(d)}</span></td><td><b>${topTxt(o)}</b> <span class="note">${o.n}명</span>${rankBar(topPct(o))}</td></tr>`;}).join('')+'</table></div>';
   box.innerHTML=h;
 }
+// ===== v113: 순위 · 통계 탭 =====
+var RV={mode:null,cache:new Map(),loading:false,ch:null};
+const charName=k=>k==='custom'?'직접 입력 캐릭터':((CHAR_DB.find(c=>c.key===k)||{}).name||k);
+const CH_SHORT={aeon_aha:'아하',pearl:'펄',waven:'웨이브',evanescia:'에바네시아',silverwolf999:'은랑',trailblazer:'환척자',sparxie:'스파키',yaoguang:'효광',custom:'직접 입력'};
+const shortName=k=>CH_SHORT[k]||charName(k);
+function showView(v){
+  const rank=v==='rank';
+  document.querySelectorAll('#vTabs .vtab').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
+  document.getElementById('rankView').hidden=!rank;
+  document.querySelector('.cols').hidden=rank;document.getElementById('qnav').hidden=rank;
+  const sb=document.getElementById('sumBar');if(rank)sb.hidden=true;else renderSumBar();
+  if(rank){if(!RV.mode)RV.mode=state.mode||'moc';loadRank();}
+  try{history.replaceState(null,'',rank?'#rank':location.pathname+location.search);}catch(e){}
+  window.scrollTo(0,0);
+}
+function myInfo(){let b=null;try{b=collectPayload();}catch(e){}
+  const fx=fxState();
+  return b?{mode:b.mode,cycles:b.settings.cycles,aha:b.results.aha,party:b.party.map(p=>({key:p.key,spd:p.spd,eid:p.eid,lc:p.lc}))}:{party:[],cycles:3};}
+async function loadRank(force){
+  const msg=document.getElementById('rvMsg'),body=document.getElementById('rvBody');
+  document.querySelectorAll('#rvMode .mtab').forEach(b=>b.classList.toggle('on',b.dataset.v===RV.mode));
+  if(!(COLLECT.url&&COLLECT.key)||!/github\.io$/.test(location.hostname)){body.hidden=true;
+    msg.innerHTML='<div class="rk-empty">순위 · 통계는 공개 사이트에서 볼 수 있어요: <a href="https://pyelyu1234.github.io/hsr-speed-calc/#rank" target="_blank" style="color:var(--accent)">pyelyu1234.github.io/hsr-speed-calc</a></div>';return;}
+  const me=myInfo(),myKeys=(me.mode===RV.mode?me.party:[]).map(p=>p.key);
+  const q={mode:RV.mode,session_id:anonId(),keys:myKeys,cycles:me.cycles||3},key=JSON.stringify(q);
+  let r=force?null:RV.cache.get(key);
+  if(!r){msg.innerHTML='<div class="rk-empty">불러오는 중…</div>';body.hidden=true;
+    try{const h={'apikey':COLLECT.key,'Content-Type':'application/json'};if(/^eyJ/.test(COLLECT.key))h.Authorization='Bearer '+COLLECT.key;
+      const res=await fetch(COLLECT.url.replace(/\/$/,'')+'/rest/v1/rpc/calc_dist',{method:'POST',headers:h,body:JSON.stringify({q})});
+      if(res.status===404){msg.innerHTML='<div class="rk-empty">순위 · 통계 기능을 준비 중이에요.</div>';return;}
+      if(!res.ok)throw new Error('HTTP '+res.status);r=await res.json();RV.cache.set(key,r);}
+    catch(e){msg.innerHTML='<div class="rk-empty">지금은 불러올 수 없어요. 잠시 후 새로고침해 주세요.</div>';return;}}
+  msg.innerHTML='';body.hidden=false;renderRankView(r,me);
+}
+function vbarHtml(items){ // items: [{label,v,pct,me,tip}] · 사람 수 대신 비율 표시
+  const m=Math.max(1e-9,...items.map(i=>i.v)),every=items.length>16?3:items.length>10?2:1;
+  return `<div class="vbar">${items.map(i=>`<div class="c${i.me?' me':''}" title="${i.tip||''}">${i.v?`<span class="n">${Math.round((i.pct||0)*100)}%</span>`:''}<div class="f" style="height:${i.v/m*100}%"></div></div>`).join('')}</div>
+    <div class="vlab">${items.map((i,k)=>`<span class="${i.me?'me':''}">${k%every===0||i.me?i.label:''}</span>`).join('')}</div>`;}
+function renderRankView(r,me){
+  const k=r.k||5,mname=(MODES[RV.mode]||{}).name,cyc=me.cycles||3;
+  const mine=me.mode===RV.mode?me.party:[],myBy=Object.fromEntries(mine.map(p=>[p.key,p]));
+  document.getElementById('rvInfo').innerHTML=`${mname} 기준 · 다른 사용자 집계 (나 제외)`;
+  const chBy=Object.fromEntries((r.chars||[]).map(c=>[c.key,c]));
+  // 1) 내 파티
+  const mEl=document.getElementById('rvMine');
+  if(!mine.length)mEl.innerHTML=`<div class="rk-empty">${me.mode&&me.mode!==RV.mode?`지금 계산기는 ${(MODES[me.mode]||{}).name} 기준이에요. 계산기에서 콘텐츠를 바꾸면 이 탭에서 비교돼요.`:'계산기에서 파티를 넣으면 같은 파티 사람들과 비교해요.'}</div>`;
+  else{
+    let h=`<p class="rk-hd">내 파티: <b>${mine.map(p=>shortName(p.key)).join(' · ')}</b></p>`;
+    if(r.mine.aha){const ks=Object.keys(r.mine.aha).map(Number).concat([me.aha]).filter(x=>isFinite(x));const lo=Math.min(...ks),hi=Math.max(...ks);
+      const tot=Object.values(r.mine.aha).reduce((a,b)=>a+b,0);const items=[];for(let v=lo;v<=hi;v++){const c=r.mine.aha[v]||0;items.push({label:v+'회',v:c,pct:c/tot,me:v===me.aha,tip:`아하 타임 ${v}회: ${Math.round(c/tot*100)}%`});}
+      h+=`<p class="note" style="margin:0 0 4px">같은 파티 사용자의 아하 타임 횟수 분포 (${cyc}사이클 동안)</p>${vbarHtml(items)}<p class="rv-legend"><b>■</b> 내 결과 ${me.aha}회</p>`;}
+    else h+=`<div class="rk-empty" style="margin-bottom:10px">같은 파티가 ${k}명 이상 모이면 아하 타임 분포가 보여요.</div>`;
+    const sameBy=Object.fromEntries((r.mine.chars||[]).map(c=>[c.key,c]));
+    h+=`<div class="tbl" style="margin-top:10px"><table><tr><th>캐릭터</th><th>내 속도</th><th>같은 파티 평균</th><th>전체 평균</th></tr>`+mine.map(p=>{const sp=sameBy[p.key],al=chBy[p.key];
+      const d=(o)=>o?`${f1(o.avg)} <span class="note" style="color:${p.spd>=o.avg?'var(--ok)':'var(--warn)'}">${p.spd>=o.avg?'+':''}${f1(p.spd-o.avg)}</span>`:'<span class="note">-</span>';
+      return `<tr><td>${charName(p.key)}</td><td>${f1(p.spd)}</td><td>${d(sp)}</td><td>${d(al)}</td></tr>`;}).join('')+'</table></div>';
+    mEl.innerHTML=h;}
+  // 2) 속도 분포
+  const sel=document.getElementById('rvChar'),chars=r.chars||[];
+  if(!chars.length){sel.hidden=true;document.getElementById('rvDist').innerHTML=`<div class="rk-empty">캐릭터별로 ${k}명 이상 모이면 분포가 보여요.</div>`;}
+  else{sel.hidden=false;
+    if(!RV.ch||!chBy[RV.ch])RV.ch=(mine.find(p=>chBy[p.key])||chars[0]).key;
+    sel.innerHTML=chars.map(c=>`<option value="${c.key}"${c.key===RV.ch?' selected':''}>${charName(c.key)}</option>`).join('');
+    sel.onchange=()=>{RV.ch=sel.value;renderRankView(r,me);};
+    const c=chBy[RV.ch],my=myBy[RV.ch];
+    const bins=Object.keys(c.bins||{}).map(Number);let lo=Math.min(...bins),hi=Math.max(...bins);
+    const myBin=my?Math.floor(my.spd/5)*5:null,out=my&&(myBin<lo-15||myBin>hi+15); // 너무 멀면 범위를 늘리지 않음
+    if(my&&!out){lo=Math.min(lo,myBin);hi=Math.max(hi,myBin);}
+    const items=[];
+    for(let b=lo;b<=hi;b+=5){const v=(c.bins||{})[b]||0;items.push({label:String(b),v,pct:v/c.n,me:myBin===b,tip:`속도 ${b} ~ ${b+4.9}: ${Math.round(v/c.n*100)}%`});}
+    const top=Object.entries(c.bins||{}).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([b,v])=>`<span class="pill p-warn" style="margin-right:4px">${b}~${+b+4.9} · ${Math.round(v/c.n*100)}%</span>`).join('');
+    document.getElementById('rvDist').innerHTML=`<div class="rv-tiles">
+      <div class="stat"><div class="k">평균</div><div class="v">${f1(c.avg)}</div></div>
+      <div class="stat"><div class="k">중앙값</div><div class="v">${f1(c.p50)}</div></div>
+      <div class="stat"><div class="k">중간 50% 범위</div><div class="v" style="font-size:15px;padding-top:4px">${f1(c.p25)} ~ ${f1(c.p75)}</div></div></div>
+      ${vbarHtml(items)}<p class="rv-legend">5 단위 구간 · 막대 위 숫자는 비율 · ${my?(out?`내 속도 ${f1(my.spd)} (분포 범위 밖)`:`<b>■</b> 내 속도 ${f1(my.spd)}`):'내 파티에 없는 캐릭터'}</p>
+      <p class="note" style="margin:8px 0 0">많이 맞추는 속도 구간 &nbsp;${top}</p>`;}
+  // 3) 성혼·광추
+  document.getElementById('rvEid').innerHTML=chars.length?`<div class="tbl"><table class="heat"><tr><th>캐릭터</th>${[0,1,2,3,4,5,6].map(e=>`<th style="text-align:center">${e}돌</th>`).join('')}<th>전용 광추</th></tr>`+
+    chars.map(c=>{const my=myBy[c.key];return `<tr><td>${shortName(c.key)}</td>`+[0,1,2,3,4,5,6].map(e=>{const v=(c.eid||{})[e]||0,pct=v/c.n;
+      return `<td class="h${my&&+my.eid===e?' me':''}" style="background:rgba(197,139,255,${(pct*0.85).toFixed(2)});color:${pct>0.45?'#fff':'var(--muted)'}" title="${e}돌 ${Math.round(pct*100)}%">${v?Math.round(pct*100)+'%':'·'}</td>`;}).join('')+
+      `<td>${Math.round(c.lc/c.n*100)}%</td></tr>`;}).join('')+`</table></div><p class="rv-legend">칸이 진할수록 많이 써요 · <b>□</b> 테두리 = 내 성혼</p>`:`<div class="rk-empty">캐릭터별로 ${k}명 이상 모이면 보여요.</div>`;
+  // 4) 인기 파티
+  const myPk=mine.map(p=>p.key).sort().join(',');
+  document.getElementById('rvParties').innerHTML=(r.parties||[]).length?`<div class="pt-list">`+
+    r.parties.map((p,i)=>{const ks=p.pk.split(',').sort((a,b)=>(ORDER[a]||500)-(ORDER[b]||500));return `<div class="pt${p.pk===myPk?' mine':''}">
+      <div class="pt-rank">${i+1}</div>
+      <div class="pt-main">
+        <div class="pt-mem">${ks.map(x=>`<span class="pt-ch"><i style="background:${ULT_COLOR[x]||'#999'}"></i>${shortName(x)}</span>`).join('')}${p.pk===myPk?'<span class="rv-tag">내 파티</span>':''}</div>
+        <div class="pt-stats"><span>사용 비율 <b>${Math.round(p.n/r.n*100)}%</b></span><span>평균 아하 타임 횟수 <b>${p.aha!=null?f1(p.aha)+'회':'-'}</b> <small>(${cyc}사이클)</small></span><span>평균 아하 타임 속도 <b>${p.ahaSpd!=null?f1(p.ahaSpd):'-'}</b></span></div>
+      </div></div>`;}).join('')+`</div>`
+    :`<div class="rk-empty">같은 파티가 ${k}명 이상인 조합이 생기면 순위가 보여요.</div>`;
+}
+document.querySelectorAll('#vTabs .vtab').forEach(b=>b.onclick=()=>showView(b.dataset.view));
+document.querySelectorAll('#rvMode .mtab').forEach(b=>b.onclick=()=>{RV.mode=b.dataset.v;loadRank();});
+document.getElementById('rvReload').onclick=()=>loadRank(true);
+if(location.hash==='#rank')setTimeout(()=>showView('rank'),0);
+window.addEventListener('hashchange',()=>{if(location.hash==='#rank')showView('rank');});
 // ===== v105: 접기 요약 · 결과 요약 바 =====
 function afterUpdate(){
   try{
@@ -1273,7 +1424,7 @@ function afterUpdate(){
 var resultVisible=false;
 function renderSumBar(){
   const bar=document.getElementById('sumBar');if(!bar)return;
-  if(!SUMBAR||resultVisible){bar.hidden=true;return;}
+  if(!SUMBAR||resultVisible||!document.getElementById('rankView').hidden){bar.hidden=true;return;}
   const S=SUMBAR;
   document.getElementById('sbItems').innerHTML=`<span>아하 타임 <b class="hl">${S.cnt}회</b> <small>(${S.n}사이클)</small></span><span>속도 <b>${f1(S.spd)}</b></span>${S.gap!=null?`<span>다음까지 <b>+${S.gap.toFixed(1)}</b></span>`:''}`;
   bar.hidden=false;
