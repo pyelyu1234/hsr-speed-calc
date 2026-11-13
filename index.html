@@ -183,7 +183,7 @@ a{color:var(--accent)}
     <details style="margin-top:10px"><summary>목록으로 보기</summary><div class="tbl" style="margin-top:8px"><table id="timeline"></table></div></details>
   </section>
 
-  <p class="note" id="collectNote" style="display:none;margin:18px 4px 0;text-align:center;font-size:12px;line-height:1.6">이 계산기는 개선과 통계를 위해 입력한 <b>파티 구성 · 캐릭터별 속도 · 성혼/광추 · 계산 결과</b>를 익명으로 수집해요. 이름 등 개인을 식별할 수 있는 정보는 수집하지 않아요.<br><label style="white-space:nowrap;cursor:pointer"><input type="checkbox" id="optOut"> 수집하지 않기</label></p>
+  <p class="note" id="collectNote" style="display:none;margin:18px 4px 0;text-align:center;font-size:12px;line-height:1.6">이 계산기는 개선과 통계를 위해 입력한 <b>파티 구성 · 캐릭터별 속도 · 성혼/광추 · 계산 결과</b>를 익명으로 수집해요. 페이지를 나갈 때 <b>마지막 세팅 1건</b>만 저장되고, 이름 등 개인을 식별할 수 있는 정보는 수집하지 않아요.<br><label style="white-space:nowrap;cursor:pointer"><input type="checkbox" id="optOut"> 수집하지 않기</label></p>
 </div>
 
 <script>
@@ -1098,17 +1098,22 @@ function collectPayload(){
     settings:{cycles:cyc,buffOn:!!state.buffOn,presetBuffs:state.presetBuffs||{},teamPct:num((state.teamBuff||{}).pct),wpTarget:fx.wpTarget,pearlTgt:fx.pearlTgt,tbTgt:fx.tbTgt,swUlt:num(fx.swUlt)||60,wavCost:num(fx.wavCost)||130,orns:fx.orns||[],vonw:fx.vonw||[],eagle:fx.eagle||[],planEdits},
     results:{T,ahaSpd:Math.round(ahaInfo().spd*10)/10,aha,ahaBonus,actions:acts,ults}};
 }
-let collectTimer=null,collectPending=null;
-function sendCollect(){if(!collectPending)return;const body=collectPending;collectPending=null;
+// 수집: 방문(탭 세션)당 최종 1건 — 페이지를 나가거나 다른 앱/탭으로 갈 때 마지막 세팅만 전송, DB 트리거가 같은 visit_id의 이전 기록을 지움
+function visitId(){try{let v=sessionStorage.getItem('hsrVisit');if(!v){v=Math.random().toString(36).slice(2)+Date.now().toString(36);sessionStorage.setItem('hsrVisit',v);}return v;}catch(e){return null;}}
+let collectTouched=false;try{collectTouched=!!localStorage.getItem('hsrSpdCalc');}catch(e){} // 저장된 세팅을 불러온 경우도 실제 데이터
+['input','change','drop','pointerup'].forEach(t=>document.addEventListener(t,ev=>{if(ev.target&&ev.target.id==='optOut')return;if(t==='pointerup'&&!(ev.target.closest&&ev.target.closest('button,[draggable],select,input')))return;collectTouched=true;},true));
+function scheduleCollect(){} // 계산할 때마다 보내지 않음
+function flushCollect(){if(!collectOn()||optedOut()||!collectTouched)return;
+  let body;try{body=collectPayload();}catch(e){return;}if(!body)return;
+  const vid=visitId();body.visit_id=vid;
   const key=JSON.stringify([body.mode,body.party,body.settings]);
   try{if(sessionStorage.getItem('hsrLastSent')===key)return;sessionStorage.setItem('hsrLastSent',key);}catch(e){}
   const h={'apikey':COLLECT.key,'Content-Type':'application/json','Prefer':'return=minimal'};if(/^eyJ/.test(COLLECT.key))h.Authorization='Bearer '+COLLECT.key;
-  fetch(COLLECT.url.replace(/\/$/,'')+'/rest/v1/'+COLLECT.table,{method:'POST',headers:h,body:JSON.stringify(body),keepalive:true}).catch(()=>{});}
-function scheduleCollect(){if(!collectOn()||optedOut())return;clearTimeout(collectTimer);
-  collectTimer=setTimeout(()=>{try{collectPending=collectPayload();sendCollect();}catch(e){}},12000);} // 12초 동안 설정이 안 바뀌면 전송
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&collectTimer&&collectOn()&&!optedOut()){clearTimeout(collectTimer);collectTimer=null;try{collectPending=collectPayload();sendCollect();}catch(e){}}});
+  try{fetch(COLLECT.url.replace(/\/$/,'')+'/rest/v1/'+COLLECT.table,{method:'POST',headers:h,body:JSON.stringify(body),keepalive:true}).catch(()=>{});}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushCollect();});
+window.addEventListener('pagehide',flushCollect);
 (function(){const n=document.getElementById('collectNote'),c=document.getElementById('optOut');if(!collectOn()||!n)return;n.style.display='';c.checked=optedOut();
-  c.onchange=()=>{try{localStorage.setItem('hsrOptOut',c.checked?'1':'0');}catch(e){}if(c.checked)clearTimeout(collectTimer);};})();
+  c.onchange=()=>{try{localStorage.setItem('hsrOptOut',c.checked?'1':'0');}catch(e){}};})();
 
 bindCoef();bindSettings();renderChars();
 </script>
