@@ -111,8 +111,13 @@ a{color:var(--accent)}
     <div class="row" style="margin-top:6px">
       <label class="f">기타 파티 전체 속도 버프 % <input type="number" id="tPct" step="0.1"></label>
     </div>
-    <div class="note" style="color:var(--text);margin-top:10px">메신저 4세트 착용 <span class="note">— 착용자가 아군에게 필살기를 쓰면 모든 아군 속도 +12% (1턴, 중첩 불가) · 버프 적용 체크와 관계없이 전투 중 자동 반영</span></div>
-    <div id="fxMsgr"></div>
+    <div class="note" style="margin-top:6px">메신저 4세트 속도 버프는 「유물 · 장신구」에서 설정해요.</div>
+  </section>
+
+  <section>
+    <h2>유물 · 장신구</h2>
+    <div class="note" style="margin-bottom:8px">캐릭터마다 유물 4세트와 장신구를 하나씩 골라요. 2세트 속도(+6%)처럼 캐릭터 화면 최종 속도에 이미 들어간 효과는 따로 넣지 않아요.</div>
+    <div class="fxgrid" id="fxRelic"></div>
   </section>
 
   <section>
@@ -122,17 +127,7 @@ a{color:var(--accent)}
         <div class="k">전투 시작</div>
         <div id="fxMhWrap" style="margin:6px 0;font-size:13px">에이언즈 아하 추가 능력 3 <span class="note">— 전투 시작 시 본인 행동 게이지 +30%</span> <span class="pill" id="fxMhState"></span></div>
         <div style="margin:8px 0;font-size:13px">에이언즈 아하 비술 <span class="note">— 전투 진입 시 아하 타임 보너스 턴 1회 ([원력] +1)</span> <span class="pill" id="fxTechState"></span></div>
-        <div class="note" style="color:var(--text);margin-top:8px">환커공 착용 <span class="note">— 착용자 행동 게이지 +40% (여러 명 착용 가능)</span></div>
-        <div id="fxOrn"></div>
-        <div class="note" style="color:var(--text);margin-top:10px">바커공 착용 <span class="note">— 생명의 바커 공: 에너지 회복 효율 +5%, 속도 120 이상이면 전투 시작 시 행동 게이지 +40%</span></div>
-        <div id="fxVonw"></div>
-        <div class="note" style="margin-top:4px">장신구는 한 캐릭터에 하나만 끼므로 환커공과 바커공 중 하나만 체크돼요.</div>
-      </div>
-      <div class="stat">
-        <div class="k">필살기 후</div>
-        <div class="note" style="color:var(--text);margin-top:6px">매 4세트 착용 <span class="note">— 밤낮의 경계를 나는 매: 필살기 발동 후 본인 행동 게이지 +25%</span></div>
-        <div id="fxEagle"></div>
-        <div class="note" style="margin-top:4px">유물 4세트는 하나만 끼므로 매와 메신저 중 하나만 체크돼요.</div>
+        <div class="note" style="margin-top:8px">환커공·바커공(전투 시작)과 매 4세트(필살기 후) 행동 게이지 증가는 「유물 · 장신구」에서 설정해요.</div>
       </div>
     </div>
   </section>
@@ -638,8 +633,7 @@ function renderSettings(marks,T){
       <div class="note">60 이상에서 사용 가능 · 최대 300 (에이언즈 아하 [환락만상] 중 360, 에이언즈 아하 2돌이면 999)</div>`;}
     if(k==='silverwolf999'){const v=lcOf(fx,k)?lcS(fx,k):0;body+=`<div class="sig"><div class="sighead"><span>전용 광추 (확실한 승리)</span><b class="sigval" data-lcsv>${swLcLabel(v)}</b></div><input type="range" min="0" max="5" step="1" data-lcs="${k}" value="${v}"><div class="sigticks"><span>미착용</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div></div><div class="note">필살기 시 웃음 포인트 획득 · 일반 공격 3회마다 재사용</div>`;}
     else if(LC_INFO[k])body+=`<label class="chk"><input type="checkbox" data-lc="${k}"${lcOf(fx,k)?' checked':''}> ${LC_INFO[k]}</label>`;
-    if(cfgOf(k).energy)body+=`<div class="row" style="gap:6px;margin-top:4px"><label class="chk"><input type="checkbox" data-er="${k}|rope"${er.rope?' checked':''}> 에너지 효율 매듭 +19.4%</label><label class="chk"><input type="checkbox" data-er="${k}|orn"${er.orn?' checked':''}> 장신구 +5%</label></div>
-      <label class="f">기타 에너지 회복 효율 % <input type="number" data-er="${k}|other" step="0.1" value="${er.other||0}"></label>`;
+    if(cfgOf(k).energy)body+=`<label class="f">기타 에너지 회복 효율 % <input type="number" data-er="${k}|other" step="0.1" value="${er.other||0}"></label><div class="note">매듭·장신구 에너지 회복 효율은 「유물 · 장신구」에서 설정해요.</div>`;
     if(EID_INFO[k]){const e=eidOf(fx,k);body+=`<label class="f">성혼 <select data-eid="${k}" style="width:90px">${[0,1,2,3,4,5,6].map(v=>`<option value="${v}"${e===v?' selected':''}>${v}돌</option>`).join('')}</select></label>
       <div class="note">${EID_INFO[k].map(([lv,txt])=>`<div style="${e>=lv?'color:var(--ok)':''}">${e>=lv?'✓ ':''}${txt}</div>`).join('')}</div>`;}
     body+=`<div data-res="${k}" style="margin-top:6px"></div>`;
@@ -1038,28 +1032,30 @@ function renderFx(){
   const opt=(sel,val,label0)=>{const el=document.getElementById(sel);const html=`<option value="-1">${label0}</option>`+act.map(c=>`<option value="${c.i}">${c.i+1}번 ${c.name}</option>`).join('');
     if(el.dataset.h!==html){el.innerHTML=html;el.dataset.h=html;}
     el.value=act.some(c=>c.i===num(val))?String(num(val)):'-1';};
-  if(!fx.orns)fx.orns=[];
-  const ob=document.getElementById('fxOrn');
-  const oh=act.length?act.map(c=>`<label class="chk"><input type="checkbox" data-orn="${c.i}"> ${c.name}</label>`).join(''):'<div class="note">파티에 캐릭터가 없어요.</div>';
-  if(ob.dataset.h!==oh){ob.innerHTML=oh;ob.dataset.h=oh;ob.querySelectorAll('input').forEach(i=>i.onchange=()=>{const k=parseInt(i.dataset.orn);fx.orns=fx.orns.filter(x=>x!==k);if(i.checked)fx.orns.push(k);update();});}
-  ob.querySelectorAll('input').forEach(i=>i.checked=fx.orns.includes(parseInt(i.dataset.orn)));
-  if(!fx.vonw)fx.vonw=[];
-  const vb=document.getElementById('fxVonw');
-  const vh=act.length?act.map(c=>`<label class="chk"><input type="checkbox" data-vonw="${c.i}"> ${c.name}<span class="note" data-vonwn="${c.i}"></span></label>`).join(''):'<div class="note">파티에 캐릭터가 없어요.</div>';
-  if(vb.dataset.h!==vh){vb.innerHTML=vh;vb.dataset.h=vh;vb.querySelectorAll('input').forEach(i=>i.onchange=()=>{const k=parseInt(i.dataset.vonw);fx.vonw=fx.vonw.filter(x=>x!==k);if(i.checked){fx.vonw.push(k);fx.orns=fx.orns.filter(x=>x!==k);}update();});}
-  ob.querySelectorAll('input').forEach(i=>{if(!i.dataset.vx){i.dataset.vx=1;const o=i.onchange;i.onchange=()=>{if(i.checked)fx.vonw=(fx.vonw||[]).filter(x=>x!==parseInt(i.dataset.orn));o&&o();};}});
-  if(!fx.msgr)fx.msgr=[];
-  const mb=document.getElementById('fxMsgr');
-  const mh=act.length?act.map(c=>ULT_ON_ALLY.has(c.key)?`<label class="chk"><input type="checkbox" data-msgr="${c.i}"> ${c.name}</label>`:`<label class="chk" style="opacity:.45"><input type="checkbox" disabled> ${c.name} <span class="note">(아군 대상 필살기 아님)</span></label>`).join(''):'<div class="note">파티에 캐릭터가 없어요.</div>';
-  if(mb.dataset.h!==mh){mb.innerHTML=mh;mb.dataset.h=mh;mb.querySelectorAll('input[data-msgr]').forEach(i=>i.onchange=()=>{const k=parseInt(i.dataset.msgr);fx.msgr=fx.msgr.filter(x=>x!==k);if(i.checked)fx.msgr.push(k);update();});}
-  if(mb.dataset.hx!==mh){mb.dataset.hx=mh;mb.querySelectorAll('input[data-msgr]').forEach(i=>{const o=i.onchange;i.onchange=()=>{if(i.checked)fx.eagle=(fx.eagle||[]).filter(x=>x!==parseInt(i.dataset.msgr));o&&o();};});}
-  mb.querySelectorAll('input[data-msgr]').forEach(i=>i.checked=fx.msgr.includes(parseInt(i.dataset.msgr)));
-  if(!fx.eagle)fx.eagle=[];
-  const eb=document.getElementById('fxEagle');
-  const eh=act.length?act.map(c=>`<label class="chk"><input type="checkbox" data-eagle="${c.i}"> ${c.name}${c.key==='silverwolf999'?' <span class="note">(필살기 자체가 행동 게이지 100%라 효과 없음)</span>':''}</label>`).join(''):'<div class="note">파티에 캐릭터가 없어요.</div>';
-  if(eb.dataset.h!==eh){eb.innerHTML=eh;eb.dataset.h=eh;eb.querySelectorAll('input').forEach(i=>i.onchange=()=>{const k=parseInt(i.dataset.eagle);fx.eagle=fx.eagle.filter(x=>x!==k);if(i.checked){fx.eagle.push(k);fx.msgr=(fx.msgr||[]).filter(x=>x!==k);}update();});}
-  eb.querySelectorAll('input').forEach(i=>i.checked=fx.eagle.includes(parseInt(i.dataset.eagle)));
-  vb.querySelectorAll('input').forEach(i=>{const k=parseInt(i.dataset.vonw);i.checked=fx.vonw.includes(k);const c=act.find(a=>a.i===k);const n=vb.querySelector(`[data-vonwn="${k}"]`);if(n)n.textContent=c&&num(c.spd)<120?' (속도 120 미만 — 게이지 효과 없음)':'';});
+  ['orns','vonw','msgr','eagle'].forEach(k=>{if(!fx[k])fx[k]=[];});
+  const rb=document.getElementById('fxRelic');
+  const setOf=c=>fx.eagle.includes(c.i)?'eagle':fx.msgr.includes(c.i)?'msgr':'';
+  const ornOf=c=>fx.orns.includes(c.i)?'hwan':fx.vonw.includes(c.i)?'vonw':(((fx.er||{})[c.key]||{}).orn?'er5':'');
+  const rh=act.length?act.map(c=>{const k=c.key,en=cfgOf(k).energy,rope=!!(((fx.er||{})[k]||{}).rope);
+    return `<div class="stat"><div style="font-weight:700;margin-bottom:6px"><span class="dot" style="background:${COLORS[c.i]}"></span>${c.name}</div>
+      <label class="f">유물 4세트 <select data-rset="${c.i}" style="width:150px"><option value="">없음 · 기타</option><option value="eagle">매</option><option value="msgr"${ULT_ON_ALLY.has(k)?'':' disabled'}>메신저</option></select></label>
+      <label class="f">장신구 <select data-rorn="${c.i}" style="width:150px"><option value="">없음 · 기타</option><option value="hwan">환커공</option><option value="vonw">바커공</option>${en?'<option value="er5">에충 장신구 (+5%)</option>':''}</select></label>
+      ${en?`<label class="chk"><input type="checkbox" data-rrope="${k}"${rope?' checked':''}> 에너지 회복 효율 매듭 (+19.4%)</label>`:''}
+      <div class="note" data-rnote="${c.i}"></div></div>`;}).join(''):'<div class="note">파티에 캐릭터가 없어요.</div>';
+  if(rb.dataset.h!==rh){rb.innerHTML=rh;rb.dataset.h=rh;
+    rb.querySelectorAll('[data-rset]').forEach(el=>el.onchange=()=>{const fx=fxState();['orns','vonw','msgr','eagle'].forEach(k=>{if(!fx[k])fx[k]=[];});const k=parseInt(el.dataset.rset);fx.eagle=fx.eagle.filter(x=>x!==k);fx.msgr=fx.msgr.filter(x=>x!==k);if(el.value)fx[el.value].push(k);update();});
+    rb.querySelectorAll('[data-rorn]').forEach(el=>el.onchange=()=>{const fx=fxState();['orns','vonw','msgr','eagle'].forEach(k=>{if(!fx[k])fx[k]=[];});const k=parseInt(el.dataset.rorn);const c=active().find(a=>a.i===k);fx.orns=fx.orns.filter(x=>x!==k);fx.vonw=fx.vonw.filter(x=>x!==k);
+      fx.er=fx.er||{};if(c){fx.er[c.key]=fx.er[c.key]||{};fx.er[c.key].orn=el.value==='er5';}
+      if(el.value==='hwan')fx.orns.push(k);if(el.value==='vonw')fx.vonw.push(k);update();});
+    rb.querySelectorAll('[data-rrope]').forEach(el=>el.onchange=()=>{const fx=fxState();['orns','vonw','msgr','eagle'].forEach(k=>{if(!fx[k])fx[k]=[];});const k=el.dataset.rrope;fx.er=fx.er||{};fx.er[k]=fx.er[k]||{};fx.er[k].rope=el.checked;update();});}
+  act.forEach(c=>{const a=rb.querySelector(`[data-rset="${c.i}"]`),b=rb.querySelector(`[data-rorn="${c.i}"]`),n=rb.querySelector(`[data-rnote="${c.i}"]`);
+    if(a)a.value=setOf(c);if(b)b.value=ornOf(c);
+    const notes=[];const DESC={eagle:'매: 필살기 후 본인 행동 게이지 +25%',msgr:'메신저: 아군 대상 필살기 시 아군 전체 속도 +12% (1턴)',hwan:'환커공: 전투 시작 행동 게이지 +40%',vonw:'바커공: 에너지 회복 효율 +5% · 속도 120 이상 시 전투 시작 행동 게이지 +40%',er5:'에충 장신구: 에너지 회복 효율 +5%'};
+    if(setOf(c))notes.push(DESC[setOf(c)]);if(ornOf(c))notes.push(DESC[ornOf(c)]);
+    if(fx.vonw.includes(c.i)&&num(c.spd)<120)notes.push('속도 120 미만이라 바커공 행동 게이지 효과 없음');
+    if(fx.eagle.includes(c.i)&&c.key==='silverwolf999')notes.push('은랑은 필살기 자체가 행동 게이지 100%라 매 효과 없음');
+    if(!ULT_ON_ALLY.has(c.key)&&!setOf(c))notes.push('메신저는 아군 대상 필살기 캐릭터만 선택 가능');
+    if(n)n.innerHTML=notes.map(x=>`<div>· ${x}</div>`).join('');});
 }
 
 function bindCoef(){
