@@ -394,6 +394,8 @@ function finalSpd(c){return num(c.spd)+buffAmt(c);}
 const hasBuff=c=>Math.abs(buffAmt(c))>1e-9||Math.abs(presetPct())>1e-9;
 function anyBuff(){return active().some(hasBuff);}
 // ===== 행동 게이지 증가 / 추가 턴 시뮬레이션 =====
+// 전투 진입 캐릭터 (v128): 지정 없으면 펄 필살기 대상 → 없으면 첫 칸
+function entrySlot(fx){fx=fx||fxState();const act=active();if(!act.length)return -1;const v=fx.entry==null?-1:num(fx.entry);if(act.some(c=>c.i===v))return v;const pt=num(fx.pearlTgt);if(act.some(c=>c.i===pt&&c.key!=='pearl')&&act.some(c=>c.key==='pearl'))return pt;return act[0].i;}
 function fxState(){if(!state.fx)state.fx={orns:[],wpTarget:-1,wpHeal:false,pearlTgt:-1,tbTgt:-1,wavCost:130,swUlt:60,lc:{},er:{},eid:{}};const f=state.fx;f.ahaMode='auto';['lc','er','eid'].forEach(k=>{if(!f[k])f[k]={};});if(!f.orns)f.orns=[];if(!f.vonw)f.vonw=[];if(!f.msgr)f.msgr=[];if(!f.eagle)f.eagle=[];return f;}
 function parseTimes(str){return String(str||'').split(/[,\s]+/).map(parseFloat).filter(x=>isFinite(x)&&x>=0).sort((a,b)=>a-b);}
 const hasKey=k=>active().find(c=>c.key===k);
@@ -416,7 +418,7 @@ let CUR={units:[],T:0};
 // ===== 시뮬레이션 엔진 v54: 행동 선택 · SP · 에너지 · 웃음 포인트 · 원력 · 히든 스코어 =====
 const CFG={
   aeon_aha:{short:'아',acts:['skill','basic']},
-  pearl:{short:'펄',acts:['enh'],cost:180,start:90,energy:true},
+  pearl:{short:'펄',acts:['enh','basic'],cost:180,start:90,energy:true},
   waven:{short:'웨',acts:['skill','basic'],energy:true},
   evanescia:{short:'에',acts:['skill','basic'],cost:240,energy:true},
   silverwolf999:{short:'은',acts:['skill','basic']},
@@ -511,6 +513,10 @@ function simAll(T,ov){
   const heldR=s=>s?s.R.reduce((a,r)=>a+r.amt,0):0;
   const snap=()=>({sp,laugh,man:manTurns>0,hid:swS?hid:null,th:spxS?thrill:null,R:chars.filter(c=>c!==evS).map(c=>({name:c.u.name,v:c===pearlS?pearlHold:heldR(c),cap:c===pearlS?pearlCap():null}))});
   const pTgt=pearlS?chars.find(s=>s!==pearlS&&s.u.slot===num(fx.pearlTgt)):null;
+  // [미학의 저본]: 전투 시작 = 진입 캐릭터(펄 비술) · 펄 필살기 후 = 필살기 대상 (v126)
+  const entryS=chars.find(s=>s.u.slot===entrySlot(fx))||chars[0]||null; // 전투 진입 캐릭터
+  let jeobon=(!pearlS||fx.pearlTech===false||!entryS||entryS===pearlS)?null:entryS; // 펄 비술 [미학의 저본] = 진입 캐릭터 (펄 자신은 심층 학습 불가)
+  let deepCh=jeobon?2:0; // [심층 학습] 충전: 비술 2 · 펄 필살기 3 · 강화 일반 공격마다 1 소모 (v127)
   const tbTgt=tbS?chars.find(s=>s!==tbS&&s.u.slot===num(fx.tbTgt)):null;
   const wTgt=aeonS?chars.find(s=>s!==aeonS&&s.u.slot===num(fx.wpTarget)):null;
   const pAdv=nEl>=3?30:nEl===2?15:10, pExtra=nEl>=4;
@@ -590,6 +596,7 @@ function simAll(T,ov){
     if(pearlS&&!info.extra){if(s===pearlS)pearlTalentR=0;else if(pearlTalentR<50){pearlTalentR+=5;rGain(pearlS,5,t);}} // 턴 시작 효과: 보너스 턴 제외
     let act=k==='silverwolf999'&&swState?'swenh':chosenAct(k,n), fb=false;
     if(act==='skill'&&(sp<1||(k==='aeon_aha'&&!wTgt))){act='basic';fb=sp<1?'SP 부족':'전투 스킬 대상 없음';}
+    if(k==='pearl'&&act==='enh'&&deepCh<=0){act='basic';fb='[심층 학습] 충전 없음';}
     const evRec={t,seq:SEQ++,act,n,fb,extra:!!info.extra,src:info.src||'',pre:pre0};s.ev.push(evRec);
     CTX=s.u.name+' '+({spx:'전투 스킬 (함정)',swenh:'강화 일반 공격'}[act]||ACT_NAME[act]||'')+(info.extra?' (보너스 턴)':'');
     if(k==='aeon_aha'){
@@ -599,7 +606,7 @@ function simAll(T,ov){
         if(lvl>0&&n>=aeonLcCd){laughGain(10,t);aeonLcCd=n+2;}}
       else spGain(1);
       attackBy(s,t);wpGain(1,t);
-    }else if(k==='pearl'){spGain(1);eGain(s,30);attackBy(s,t);evRec.ph=pearlHold;evRec.pc=pearlCap();}
+    }else if(k==='pearl'){spGain(1);if(act==='enh'){eGain(s,30);deepCh--;evRec.dc=deepCh;if(deepCh<=0)mark(t,'펄 [심층 학습] 충전 소진 → 다음부터 일반 공격 (펄 필살기로 다시 3충전)','pearlDeep');}else eGain(s,20);attackBy(s,t);evRec.ph=pearlHold;evRec.pc=pearlCap();}
     else if(k==='waven'){
       if(act==='skill'){spSpend(1,t);eGain(s,30);laughGain(4,t);wavA3=0;zealGain(4,t);}else{spGain(1);eGain(s,20);}
       if(wUltTurns>0&&!info.extra){wUltTurns--;if(wUltTurns===0){setPct(s,'ult',0,t);mark(t,'어벤츄린 웨이브 필살기 속도 버프 종료','wavenEnd');}}
@@ -659,7 +666,7 @@ function simAll(T,ov){
           adv(pTgt,t,pAdv);
           if(eidOf(fx,'pearl')>=2){const others=chars.filter(o=>o!==pearlS&&o!==pTgt);others.forEach(o=>adv(o,t,pAdv));
             if(others.length)mark(t,`펄 2돌 → ${others.map(o=>o.u.name).join('·')} 행동 게이지 +${pAdv}%`,'pearlE2');}
-          if(pExtra)queue.push({s:pTgt,src:'펄 필살기',pearl:true,mk:marks.filter(m=>m.who==='pearl'&&m.k!=null).pop()});pearlA3=true;fired=true;}
+          if(pExtra)queue.push({s:pTgt,src:'펄 필살기',pearl:true,mk:marks.filter(m=>m.who==='pearl'&&m.k!=null).pop()});jeobon=pTgt;deepCh=3;pearlA3=true;fired=true;}
         else if(k==='waven'&&s.E>=wCOST-1e-9){s.E-=wCOST;eGain(s,5);laughGain(6,t);zealGain(8,t);wUltTurns=4;setPct(s,'ult',30,t);
           mark(t,'어벤츄린 웨이브 필살기: 속도 +30% (4턴)','waven',{k:s.n});fired=true;}
         else if(k==='yaoguang'&&s.E>=180-1e-9){s.E-=180;eGain(s,5);const man=manTurns>0;if(aeonS&&man)eGain(s,aE2?30:12,true); // [환락만상] 중 필살기 후 에너지 고정 +12 (아하 2돌 +30)
@@ -684,7 +691,7 @@ function simAll(T,ov){
         const um=marks.slice(ml).find(m=>m.who===k&&m.k!=null); // 이번에 이 캐릭터가 쓴 필살기
         if(um&&(fx.eagle||[]).includes(s.u.slot)){adv(s,t,25);mark(t,`매 4세트 (${s.u.name}): 필살기 후 행동 게이지 +25%`,'eagle');}
         if(um){um.ui=ultCount[k]||0;ultCount[k]=um.ui+1;allyAct(s,t);um.pre=sb;um.post=snap();}
-        if(um&&pearlS&&s===pTgt&&pearlA3){pearlA3=false;eGain(pearlS,90,true);mark(t,`펄 추가 능력 3: ${s.u.name} 필살기 → 펄 에너지 +90`,'pearlA3');}
+        if(um&&pearlS&&jeobon&&s===jeobon&&pearlA3){pearlA3=false;eGain(pearlS,90,true);mark(t,`펄 추가 능력 3: 저본 ${s.u.name} 필살기 → 펄 에너지 +90`,'pearlA3');}
       }
       if(!fired)break;
     }
@@ -721,10 +728,10 @@ function simAll(T,ov){
   if(ygS){eGain(ygS,30);if(lcOf(fx,'yaoguang'))eGain(ygS,15,true);}
   if(aeonS&&aha){if(eidOf(fx,'aeon_aha')>=1)wp+=5;if(fx.wpHeal)wp+=1;}
   laughGain(nEl,0); // 공통: 전투 시작 시 환락 캐릭터 1명당 웃음 포인트 +1
-  if(swS)laughGain(3,0);
-  if(evS)rGain(evS,20,0);
-  if(wavenS){rGain(wavenS,20,0);zealGain(2,0);} // 웨이브 비술: [보상을] 20 · [열의] 2
-  if(pearlS)rGain(pearlS,20,0);
+  if(swS&&entryS===swS)laughGain(3,0); // 은랑 비술 [기기괴괴콩]: 진입 캐릭터일 때만 웨이브 시작 보급상자 → 웃음 포인트 +3
+  if(evS&&entryS===evS)rGain(evS,20,0); // 에바네시아 비술(공격형): 진입 캐릭터일 때만 [보상을] 20
+  if(wavenS&&entryS===wavenS){rGain(wavenS,20,0);zealGain(2,0);} // 웨이브 비술(공격형): 진입 캐릭터일 때만 [보상을] 20 · [열의] 2
+  if(pearlS&&fx.pearlTech!==false)rGain(pearlS,20,0); // 펄 비술(서포트): [보상을] 20
   if(ygS)laughGain(3,0);
   if(aeonS&&aha)queue.push({aha:true,src:'에이언즈 아하 비술',fixed:20});
   tryUlts(0);runQueue(0);tryUlts(0);runQueue(0);
@@ -777,14 +784,19 @@ function renderSettings(marks,T){
   const fx=fxState(), act=active(), box=document.getElementById('setBox');
   if(!act.length){box.innerHTML='<div class="note">캐릭터를 넣으면 설정이 나와요.</div>';box.dataset.h='';return;}
   const tOpts=(self,val,none)=>`<option value="-1">${none}</option>`+act.filter(c=>c.key!==self).map(c=>`<option value="${c.i}"${num(val)===c.i?' selected':''}>${c.name}</option>`).join('');
-  let h='';
+  const es=entrySlot(fx),atk=act.filter(c=>c.key==='waven'||c.key==='evanescia'||c.key==='silverwolf999');
+  let h=`<div class="stat" style="grid-column:1/-1"><label class="f" style="margin:0"><b style="color:var(--text)">전투 진입 캐릭터</b> <select data-fx="entry" style="width:auto">${act.map(c=>`<option value="${c.i}"${c.i===es?' selected':''}>${c.name}</option>`).join('')}</select></label>
+    <div class="note" style="margin-top:4px">필드에서 적을 공격해 전투를 시작하는 캐릭터 · 웨이브 · 에바네시아 · 은랑의 비술 효과는 진입 캐릭터일 때만 적용${atk.length?` (지금: ${atk.map(c=>c.name+(c.i===es?' 적용':' 미적용')).join(' · ')})`:''}${act.some(c=>c.key==='pearl')?' · 펄 비술 [미학의 저본]도 진입 캐릭터에게':''}</div></div>`;
   act.forEach(c=>{const k=c.key;if(k==='custom')return;
     const er=(fx.er||{})[k]||{};
     let body='';
     if(k==='aeon_aha'){body+=`<label class="f">전투 스킬 대상 <select data-fx="wpTarget" style="width:150px">${tOpts(k,fx.wpTarget,'없음 (일반 공격만)')}</select></label>
       <label class="chk"><input type="checkbox" data-fx="wpHeal"${fx.wpHeal?' checked':''}> 동료 힐·실드 받음 [원력] +1 <span class="note">— 전투 시작·필살기 직후</span></label>
       <div class="note">[원력] 8 도달 시 필살기 (최대 10) · 웃음 포인트 40 도달 시 +1 (아하 턴마다 다시 가능)</div>`;}
-    if(k==='pearl')body+=`<label class="f">필살기 대상 <select data-fx="pearlTgt" style="width:150px">${tOpts(k,fx.pearlTgt,'선택 안 함')}</select></label>`;
+    if(k==='pearl'){const pe=fx.pearlEntry==null?-1:num(fx.pearlEntry);
+      body+=`<label class="f">필살기 대상 <select data-fx="pearlTgt" style="width:150px">${tOpts(k,fx.pearlTgt,'선택 안 함')}</select></label>
+      <label class="chk"><input type="checkbox" data-fx="pearlTech"${fx.pearlTech===false?'':' checked'}> 비술 사용 ([미학의 저본] → 전투 진입 캐릭터)</label>
+      <div class="note">저본 = 위 「전투 진입 캐릭터」 → 그 캐릭터의 첫 필살기에 펄 에너지 +90 (추가 능력 3) · 펄로 진입하면 심층 학습 없음 · 펄 필살기 후엔 필살기 대상이 저본<br>[심층 학습] 충전: 비술 2 · 펄 필살기 3 · 충전이 있으면 강화 일반 공격(에너지 30, 1 소모), 없으면 일반 공격(에너지 20)</div>`;}
     if(k==='trailblazer')body+=`<label class="f">필살기 대상 <select data-fx="tbTgt" style="width:150px">${tOpts(k,fx.tbTgt,'선택 안 함')}</select></label>`;
     if(k==='evanescia')body+=`<div class="note">에너지 240에서 필살기 (240 소모, 최대 480) · 시작 에너지 240 · [보상] 획득 = 같은 양 에너지 · 누적 에너지 240마다 [여우 선생님]</div>`;
     if(k==='waven')body+=`<label class="f">필살기 에너지 <input type="number" data-fx="wavCost" min="1" step="5" value="${num(fx.wavCost)||130}"></label><div class="note">추가 능력 2 (환락이 웨이브 1명뿐일 때): 동료 공격 후 [보상을] +2 · 웃음 포인트 +1 · 아하 속도 +25 (아하 타임 종료까지)<br>승격 (환락이 웨이브 + 에이언즈 아하 2명이고 [환락만상] 중): 위 효과 적용 + 모든 아군 속도 +15% · 동료 공격 시 추가로 [열의] +1 · 쾌감 포인트 +1 — 계산에 자동 반영</div>`;
@@ -1237,7 +1249,7 @@ function collectPayload(){
   o.marks.filter(m=>m.k!=null&&m.t<=T+EPS).forEach(m=>{ults[m.who]=(ults[m.who]||0)+1;});
   const planEdits=Object.values(state.plan||{}).reduce((a,p)=>a+Object.keys(p.a||{}).length+(p.hold||[]).length+Object.keys(p.ud||{}).length,0);
   return {session_id:anonId(),mode:state.mode,party,
-    settings:{cycles:cyc,buffOn:!!state.buffOn,rules:rules().filter(r=>num(r.v)).map(r=>({t:r.t,n:r.n,slot:r.slot,v:num(r.v),u:r.u})),presetBuffs:state.presetBuffs||{},teamPct:num((state.teamBuff||{}).pct),wpTarget:fx.wpTarget,pearlTgt:fx.pearlTgt,tbTgt:fx.tbTgt,swUlt:num(fx.swUlt)||60,wavCost:num(fx.wavCost)||130,orns:fx.orns||[],vonw:fx.vonw||[],eagle:fx.eagle||[],planEdits},
+    settings:{cycles:cyc,buffOn:!!state.buffOn,rules:rules().filter(r=>num(r.v)).map(r=>({t:r.t,n:r.n,slot:r.slot,v:num(r.v),u:r.u})),presetBuffs:state.presetBuffs||{},teamPct:num((state.teamBuff||{}).pct),wpTarget:fx.wpTarget,pearlTgt:fx.pearlTgt,entry:entrySlot(fx),pearlTech:fx.pearlTech!==false,tbTgt:fx.tbTgt,swUlt:num(fx.swUlt)||60,wavCost:num(fx.wavCost)||130,orns:fx.orns||[],vonw:fx.vonw||[],eagle:fx.eagle||[],planEdits},
     results:{T,ahaSpd:Math.round(ahaInfo().spd*10)/10,aha,ahaBonus,actions:acts,ults}};
 }
 // 수집: 방문(탭 세션)당 최종 1건 — 페이지를 나가거나 다른 앱/탭으로 갈 때 마지막 세팅만 전송, DB 트리거가 같은 visit_id의 이전 기록을 지움
