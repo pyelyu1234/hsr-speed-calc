@@ -193,6 +193,7 @@ tr.mine td{background:rgba(197,139,255,.08)}
 .rl .rl-n{width:46px!important}
 .rl .rl-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px}
 .rl .rl-hit{flex-basis:100%;font-size:11.5px;color:var(--muted)}
+/* v137: 히아킨 여전사 4세트 — 비술 치유로 전투 시작부터 발동 */
 /* v136: 지원 캐릭터 설정 줄바꿈 정리 (이름 위, 입력칸 아래 전체 폭) */
 [data-suprow]{margin:2px 0 10px 24px!important;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
 [data-suprow] label.f{display:flex;flex-direction:column;align-items:stretch;gap:3px;margin:6px 0 0!important;font-size:12.5px}
@@ -762,6 +763,7 @@ function simAll(T,ov){
   if(wavenS&&entryS===wavenS){rGain(wavenS,20,0);zealGain(2,0);} // 웨이브 비술(공격형): 진입 캐릭터일 때만 [보상을] 20 · [열의] 2
   if(pearlS&&fx.pearlTech!==false)rGain(pearlS,20,0); // 펄 비술(서포트): [보상을] 20
   if(ygS)laughGain(3,0);
+  {const hyS0=sups.find(x=>x.u.key==='sup_hy');if(hyS0&&supSet('hy')==='wg')wgOn(hyS0,0);} // 히아킨 비술(치유): 전투 시작 시 치유 → 여전사 4세트 처음부터 발동 (진입 캐릭터 무관)
   if(aeonS&&aha)queue.push({aha:true,src:'에이언즈 아하 비술',fixed:20});
   tryUlts(0);runQueue(0);tryUlts(0);runQueue(0);
   let guard=0;
@@ -1128,7 +1130,7 @@ function update(){
   if(!state.presetBuffs)state.presetBuffs={yg:false,gx:false};
   const pbBox=document.getElementById('presetBuffs');
   if(!pbBox.dataset.built){
-    pbBox.innerHTML=PRESET_BUFFS.map(b=>`<label class="chk"><input type="checkbox" data-pb="${b.key}"> <b>${b.name}</b>&nbsp;<span class="note">${b.desc}</span> <span class="note" data-pbn="${b.key}"></span></label>`+(b.sup?`<div data-suprow="${b.key}" style="margin:0 0 6px 24px"><label class="f" style="margin:0">${b.sup} 속도 <input type="number" data-supspd="${b.key}" step="0.1" style="width:80px"> <span class="note">캐릭터 화면 속도를 넣으면 행동 순서에 나와요</span></label><label class="f" style="margin:4px 0 0">${b.sup} 유물 4세트 <select data-supset="${b.key}" style="width:auto"><option value="">없음 · 기타</option><option value="wg">태양과 번개의 여전사 (치유 후 속도 +6%)</option>${b.key==='gx'?'<option value="eagle">매 (필살기 후 행동 게이지 +25%)</option>':''}</select></label><label class="f" style="margin:4px 0 0">${b.sup} 장신구 <select data-suporn="${b.key}" style="width:auto"><option value="">없음 · 기타</option><option value="vonw">바커공 (에충 +5% · 120↑ 시작 +40%)</option><option value="hwan">환커공 (시작 +40%)</option><option value="er5">에충 장신구 (+5%)</option></select></label>${b.key==='gx'?`<label class="f" style="margin:4px 0 0">곽향 행동 <select id="gxAct" style="width:auto"><option value="skill">전투 스킬 (에너지 30, SP -1)</option><option value="basic">일반 공격 (에너지 20, SP +1)</option></select></label><label class="chk"><input type="checkbox" id="gxRope"> 에너지 회복 효율 매듭 (+19.4%)</label><div class="note">곽향 필살기(에너지 140): 다른 아군 에너지 최대치의 20% 회복 · 전투 시작 에너지 100 (절반 70 + 추가 능력 30) · [양명] 중 아군 턴 시작·필살기마다 치유 → 에너지 +1 (6회)</div>`:''}</div>`:'')).join('');
+    pbBox.innerHTML=PRESET_BUFFS.map(b=>`<label class="chk"><input type="checkbox" data-pb="${b.key}"> <b>${b.name}</b>&nbsp;<span class="note">${b.desc}</span> <span class="note" data-pbn="${b.key}"></span></label>`+(b.sup?`<div data-suprow="${b.key}" style="margin:0 0 6px 24px"><label class="f" style="margin:0">${b.sup} 속도 <input type="number" data-supspd="${b.key}" step="0.1" style="width:80px"> <span class="note">캐릭터 화면 속도를 넣으면 행동 순서에 나와요</span></label><label class="f" style="margin:4px 0 0">${b.sup} 유물 4세트 <select data-supset="${b.key}" style="width:auto"><option value="">없음 · 기타</option><option value="wg">태양과 번개의 여전사 (${b.key==='hy'?'비술 치유로 전투 시작부터 속도 +6%':'치유 후 속도 +6%'})</option>${b.key==='gx'?'<option value="eagle">매 (필살기 후 행동 게이지 +25%)</option>':''}</select></label><label class="f" style="margin:4px 0 0">${b.sup} 장신구 <select data-suporn="${b.key}" style="width:auto"><option value="">없음 · 기타</option><option value="vonw">바커공 (에충 +5% · 120↑ 시작 +40%)</option><option value="hwan">환커공 (시작 +40%)</option><option value="er5">에충 장신구 (+5%)</option></select></label>${b.key==='gx'?`<label class="f" style="margin:4px 0 0">곽향 행동 <select id="gxAct" style="width:auto"><option value="skill">전투 스킬 (에너지 30, SP -1)</option><option value="basic">일반 공격 (에너지 20, SP +1)</option></select></label><label class="chk"><input type="checkbox" id="gxRope"> 에너지 회복 효율 매듭 (+19.4%)</label><div class="note">곽향 필살기(에너지 140): 다른 아군 에너지 최대치의 20% 회복 · 전투 시작 에너지 100 (절반 70 + 추가 능력 30) · [양명] 중 아군 턴 시작·필살기마다 치유 → 에너지 +1 (6회)</div>`:''}</div>`:'')).join('');
     pbBox.querySelectorAll('[data-supspd]').forEach(i=>i.oninput=()=>{state.supSpd=state.supSpd||{};state.supSpd[i.dataset.supspd]=i.value;update();});
     pbBox.querySelectorAll('[data-supset]').forEach(sl=>sl.onchange=()=>{state.supSet=state.supSet||{};state.supSet[sl.dataset.supset]=sl.value;update();});
     pbBox.querySelectorAll('[data-suporn]').forEach(sl=>sl.onchange=()=>{state.supOrn=state.supOrn||{};state.supOrn[sl.dataset.suporn]=sl.value;update();});
