@@ -366,8 +366,8 @@ const AEON_BASE=94; // 미착용, 중첩 1~5
 const sigBonus=c=>isAeon(c)?(SIG_SPD[parseInt(c.sig)||0]||0):0;
 function baseSpd(c){return num(c.base)+sigBonus(c);}
 const PRESET_BUFFS=[
-  {key:'gx',name:'곽향 1돌',desc:'모든 아군 속도 +12% (곽향이 들어갈 빈 칸 필요)',pct:12,needSlot:true},
-  {key:'hy',name:'히아킨 2돌',desc:'히아킨 첫 행동 후부터 모든 아군(히아킨 포함) 속도 +30% (히아킨이 들어갈 빈 칸 필요)',pct:30,needSlot:true,dyn:true},
+  {key:'gx',name:'곽향 1돌',desc:'모든 아군 속도 +12% (곽향이 들어갈 빈 칸 필요)',pct:12,needSlot:true,sup:'곽향',base:98},
+  {key:'hy',name:'히아킨 2돌',desc:'히아킨 첫 행동 후부터 모든 아군(히아킨 포함) 속도 +30% (히아킨이 들어갈 빈 칸 필요)',pct:30,needSlot:true,dyn:true,sup:'히아킨',base:110},
 ];
 const ygInParty=()=>active().some(c=>c.key==='yaoguang');
 function pbBlocked(b){if(b.need&&!active().some(c=>c.key===b.need))return '— 효광이 파티에 없어서 적용 안 됨';if(b.needSlot){const pb=state.presetBuffs||{},sup=PRESET_BUFFS.filter(x=>x.needSlot&&pb[x.key]);const idx=sup.indexOf(b);const free=4-active().length;if(free<=0||(idx>=0&&idx>=free))return `— 환락 캐릭터로 칸이 차서 ${b.name.replace(/ \d돌$/,'')}이(가) 들어갈 자리가 없어 적용 안 됨`;}return '';}
@@ -410,6 +410,8 @@ function buildUnits(ahaSpd,withAha){
     if((fx.vonw||[]).includes(c.i)&&num(c.spd)>=120)sa+=40; // 바커공: 속도 120 이상 전투 시작 게이지 +40%
     return {id:'c'+c.i,slot:c.i,key:c.key,name:c.name,base:baseSpd(c),spd:finalSpd(c),color:COLORS[c.i],startAdv:Math.min(100,Math.max(0,sa)),effects:[]};
   });
+  PRESET_BUFFS.filter(b=>b.sup&&state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b)&&supSpd(b.key)>0).forEach(b=>{ // 히아킨·곽향 (환락 아님: 행동만 표시, 고정 버프는 적용)
+    units.push({id:'s_'+b.key,key:'sup_'+b.key,name:b.sup,base:b.base,spd:supSpd(b.key)+b.base*presetPct()/100,color:'#9aa3b2',startAdv:0,effects:[],support:true});});
   const aha={id:'aha',name:'아하 타임',spd:ahaSpd,color:COLORS[4],startAdv:0,effects:[]};
   const marks=[];
   if(hasKey('aeon_aha')&&fx.ahaMode==='manual')parseTimes(fx.ahaUlt).forEach(t=>{marks.push({t,name:'에이언즈 아하 궁극기'});aha.effects.push({t,adv:20,src:'에이언즈 아하 궁극기'});});
@@ -428,11 +430,12 @@ const CFG={
   sparxie:{short:'스',acts:['spx'],cost:160,energy:true},
   yaoguang:{short:'효',acts:['basic','skill'],cost:180,energy:true},
 };
-const ACT_NAME={skill:'전투 스킬',basic:'일반 공격',enh:'강화 일반 공격',spx:'전투 스킬 → 함정 → 강화 일반 공격',swenh:'강화 일반 공격 (무적 플레이어)'};
+const ACT_NAME={turn:'행동',skill:'전투 스킬',basic:'일반 공격',enh:'강화 일반 공격',spx:'전투 스킬 → 함정 → 강화 일반 공격',swenh:'강화 일반 공격 (무적 플레이어)'};
 const ACT_SHORT={skill:'전',basic:'평',enh:'강',spx:'스',swenh:'강'};
 const ROPE=19.4, ORN=5;
 const ULT_ON_ALLY=new Set(['pearl','trailblazer','yaoguang']); // 아군 대상 필살기
-function cfgOf(k){return CFG[k]||{short:'?',acts:['skill','basic']};}
+function cfgOf(k){if(/^sup_/.test(k))return {short:k==='sup_hy'?'히':'곽',acts:['turn']};return CFG[k]||{short:'?',acts:['skill','basic']};}
+const supSpd=k=>num(((state.supSpd||{})[k]))||(k==='hy'?num(state.hySpd):0);
 function eidOf(fx,k){return parseInt((fx.eid||{})[k])||0;}
 function lcOf(fx,k){return !!(fx.lc||{})[k];}
 function lcS(fx,k){return Math.min(5,Math.max(1,parseInt((fx.lcS||{})[k])||1));}
@@ -452,7 +455,7 @@ function simAll(T,ov){
     return {u,key:u.key,spd0,spd,iv,next:spd>0?iv*(1-u.startAdv/100):Infinity,ev:[],pct:{},n:0,E:0};});
   const byId=Object.fromEntries(st.map(s=>[s.u.id,s]));
   const aha=byId['aha'];
-  const chars=st.filter(s=>s!==aha);
+  const chars=st.filter(s=>s!==aha&&!s.u.support), sups=st.filter(s=>s.u.support);
   const ck=k=>chars.find(s=>s.key===k);
   const marks=[];let SEQ=0;
   const aeonS=ck('aeon_aha'),pearlS=ck('pearl'),wavenS=ck('waven'),ygS=ck('yaoguang'),spxS=ck('sparxie'),tbS=ck('trailblazer'),swS=ck('silverwolf999'),evS=ck('evanescia');
@@ -739,13 +742,15 @@ function simAll(T,ov){
   if(aeonS&&aha)queue.push({aha:true,src:'에이언즈 아하 비술',fixed:20});
   tryUlts(0);runQueue(0);tryUlts(0);runQueue(0);
   let guard=0;
-  let hyT=hyOn()&&num(state.hySpd)>0?10000/num(state.hySpd):Infinity; // 히아킨 2돌: 히아킨 첫 행동 시점 (속도로 계산)
+  let hyDone=false;
   while(guard++<8000){
     let best=null;st.forEach(s=>{if(s.next<=T+EPS&&(!best||s.next<best.next-1e-9))best=s;});
-    if(hyT<=T+EPS&&(!best||hyT<=best.next+1e-9)){const th=hyT;hyT=Infinity;chars.forEach(c=>setPct(c,'hy',30,th));mark(th,'히아킨 2돌: 히아킨 행동 → 모든 아군 속도 +30%','hyE2');continue;}
     if(!best)break;
     const t=best.next;best.next=t+best.iv;
     if(best===aha){aha.ev.push({t,seq:SEQ++});ahaAct(t,{});}
+    else if(best.u.support){const ev={t,seq:SEQ++,act:'turn',n:best.n++,extra:false,pre:snap()};best.ev.push(ev); // 지원 캐릭터: 행동만
+      if(best.u.key==='sup_hy'&&hyOn()&&!hyDone){hyDone=true;chars.concat(sups).forEach(c=>setPct(c,'hy',30,t));mark(t,'히아킨 2돌: 히아킨 행동 → 모든 아군(히아킨 포함) 속도 +30%','hyE2');}
+      ev.post=snap();}
     else charAct(best,t,{});
     tryUlts(t);runFox(t);runQueue(t);
   }
@@ -1096,12 +1101,12 @@ function update(){
   if(!state.presetBuffs)state.presetBuffs={yg:false,gx:false};
   const pbBox=document.getElementById('presetBuffs');
   if(!pbBox.dataset.built){
-    pbBox.innerHTML=PRESET_BUFFS.map(b=>`<label class="chk"><input type="checkbox" data-pb="${b.key}"> <b>${b.name}</b>&nbsp;<span class="note">${b.desc}</span> <span class="note" data-pbn="${b.key}"></span></label>`+(b.key==='hy'?`<label class="f" id="hyRow" style="margin:0 0 6px 24px">히아킨 속도 <input type="number" id="hySpd" step="0.1" style="width:80px"></label>`:'')).join('');
-    {const hs=document.getElementById('hySpd');hs.oninput=()=>{state.hySpd=hs.value;update();};}
+    pbBox.innerHTML=PRESET_BUFFS.map(b=>`<label class="chk"><input type="checkbox" data-pb="${b.key}"> <b>${b.name}</b>&nbsp;<span class="note">${b.desc}</span> <span class="note" data-pbn="${b.key}"></span></label>`+(b.sup?`<label class="f" data-suprow="${b.key}" style="margin:0 0 6px 24px">${b.sup} 속도 <input type="number" data-supspd="${b.key}" step="0.1" style="width:80px"> <span class="note">캐릭터 화면 속도 · 넣으면 행동 순서에 나와요</span></label>`:'')).join('');
+    pbBox.querySelectorAll('[data-supspd]').forEach(i=>i.oninput=()=>{state.supSpd=state.supSpd||{};state.supSpd[i.dataset.supspd]=i.value;update();});
     pbBox.querySelectorAll('input').forEach(i=>i.onchange=()=>{state.presetBuffs[i.dataset.pb]=i.checked;update();});
     pbBox.dataset.built=1;
   }
-  {const hr=document.getElementById('hyRow'),hs=document.getElementById('hySpd');if(hr){hr.style.display=state.presetBuffs&&state.presetBuffs.hy?'':'none';if(document.activeElement!==hs)hs.value=state.hySpd||'';}}
+  pbBox.querySelectorAll('[data-suprow]').forEach(r=>{const k=r.dataset.suprow,i=r.querySelector('input');r.style.display=state.presetBuffs&&state.presetBuffs[k]?'':'none';if(document.activeElement!==i)i.value=supSpd(k)||'';});
   PRESET_BUFFS.forEach(b=>{
     const i=pbBox.querySelector(`[data-pb=${b.key}]`);i.checked=!!state.presetBuffs[b.key];
     pbBox.querySelector(`[data-pbn=${b.key}]`).textContent=i.checked?pbBlocked(b):'';
