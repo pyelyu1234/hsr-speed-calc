@@ -233,6 +233,11 @@ tr.mine td{background:rgba(197,139,255,.08)}
     <div class="foldbody">
     <div class="note" style="margin-bottom:4px">설정한 버프는 항상 계산에 반영돼요. 효광 2돌 속도 +12%는 「캐릭터별 설정」의 효광 성혼에서 설정해요.</div>
     <div id="presetBuffs" style="margin-top:6px"></div>
+    <div class="row" style="margin-top:8px;gap:6px 16px">
+      <label class="f">모든 아군 속도 + <input type="number" id="tFlat" step="0.1" style="width:80px"></label>
+      <label class="f">모든 아군 속도 % <input type="number" id="tPctAll" step="0.1" style="width:80px"></label>
+    </div>
+    <div class="note">콘텐츠 버프 등 (예: 모든 아군 속도 +12 → 고정값에 12) · 마이너스도 넣을 수 있어요 · %는 게임처럼 기초 속도 기준</div>
     </div>
     </details>
   </section>
@@ -362,13 +367,14 @@ const ygInParty=()=>active().some(c=>c.key==='yaoguang');
 function pbBlocked(b){if(b.need&&!active().some(c=>c.key===b.need))return '— 효광이 파티에 없어서 적용 안 됨';if(b.needSlot&&active().length>=4)return '— 환락 캐릭터 4명으로 파티가 꽉 차서 곽향이 들어갈 자리가 없어 적용 안 됨';return '';}
 const ygE2=()=>ygInParty()&&eidOf(fxState(),'yaoguang')>=2; // 효광 2돌: 아군 전체 속도 +12% (성혼으로 자동)
 function presetPct(){const pb=state.presetBuffs||{};return PRESET_BUFFS.reduce((t,b)=>t+((pb[b.key]&&!pbBlocked(b))?b.pct:0),0)+(ygE2()?12:0);}
-function buffNames(){const a=[];if(ygE2())a.push('효광 2돌 +12%');PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))a.push(b.name+' +'+b.pct+'%');});const tp=num((state.teamBuff||{}).pct);if(tp)a.push('기타 +'+tp+'%');return a;}
+function buffNames(){const a=[];if(ygE2())a.push('효광 2돌 +12%');PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))a.push(b.name+' +'+b.pct+'%');});const tb=state.teamBuff||{},sg=v=>(v>0?'+':'')+f1(v);if(num(tb.flat))a.push('모든 아군 '+sg(num(tb.flat)));if(num(tb.pct))a.push('모든 아군 '+sg(num(tb.pct))+'%');return a;}
 function buffAmt(c){if(!state.buffOn)return 0;const b=state.teamBuff||{pct:0,flat:0};
-  return baseSpd(c)*totalPct(c)/100;}
+  return baseSpd(c)*totalPct(c)/100+num(c.bflat)+num(b.flat);} // % 버프(기초 속도 기준) + 개인 고정값 + 모든 아군 고정값
 function totalPct(c){const b=state.teamBuff||{pct:0};return num(c.bpct)+num(b.pct)+presetPct();}
 const autoPct=c=>presetPct()+num((state.teamBuff||{}).pct);
 function finalSpd(c){return num(c.spd)+buffAmt(c);}
-function anyBuff(){return active().some(c=>Math.abs(totalPct(c))>1e-9);}
+const hasBuff=c=>Math.abs(totalPct(c))>1e-9||Math.abs(num(c.bflat))>1e-9||Math.abs(num((state.teamBuff||{}).flat))>1e-9;
+function anyBuff(){return active().some(hasBuff);}
 // ===== 행동 게이지 증가 / 추가 턴 시뮬레이션 =====
 function fxState(){if(!state.fx)state.fx={orns:[],wpTarget:-1,wpHeal:false,pearlTgt:-1,tbTgt:-1,wavCost:130,swUlt:60,lc:{},er:{},eid:{}};const f=state.fx;f.ahaMode='auto';['lc','er','eid'].forEach(k=>{if(!f[k])f[k]={};});if(!f.orns)f.orns=[];if(!f.vonw)f.vonw=[];if(!f.msgr)f.msgr=[];if(!f.eagle)f.eagle=[];return f;}
 function parseTimes(str){return String(str||'').split(/[,\s]+/).map(parseFloat).filter(x=>isFinite(x)&&x>=0).sort((a,b)=>a-b);}
@@ -1011,8 +1017,10 @@ function renderChars(){
         <div class="final" style="border:none;padding-top:0;margin-top:0"><small>버프 후</small><b data-out="buffed" style="font-size:18px;color:var(--ok)"></b></div>
         <div class="note" data-out="pctnote" style="text-align:right"></div>
       </div>
-      <details class="cmore"${num(c.bpct)?' open':''}><summary>추가 설정</summary>
-        <label class="f">개인 속도 버프 % <input type="number" data-k="bpct" step="0.1" value="${num(c.bpct)||0}"></label></details>
+      <details class="cmore"${num(c.bpct)||num(c.bflat)?' open':''}><summary>추가 설정</summary>
+        <label class="f">개인 속도 % <input type="number" data-k="bpct" step="0.1" value="${num(c.bpct)||0}"></label>
+        <label class="f">개인 속도 + <input type="number" data-k="bflat" step="0.1" value="${num(c.bflat)||0}"></label>
+        <div class="note">이 캐릭터만 · 마이너스 가능 · %는 기초 속도 기준, +는 그대로 더함</div></details>
       <div data-out="th"></div>`;
     }
     d.innerHTML=inner;
@@ -1043,9 +1051,9 @@ function update(){
     const s=finalSpd(c), set=num(c.spd);
     const warnBase=baseSpd(c);
     el.querySelector('[data-out=buffed]').textContent=f1(set+withBuff(true,()=>buffAmt(c)));
-    {const bb=el.querySelector('.buffbox');bb.style.display=Math.abs(totalPct(c))>1e-9?'':'none';}
+    {const bb=el.querySelector('.buffbox');bb.style.display=hasBuff(c)?'':'none';}
     const pp=presetPct(), tpv=num((state.teamBuff||{}).pct);
-    const parts=buffNames();if(num(c.bpct))parts.push('개인 '+(num(c.bpct)>0?'+':'')+f1(num(c.bpct))+'%');
+    const parts=buffNames();if(num(c.bpct))parts.push('개인 '+(num(c.bpct)>0?'+':'')+f1(num(c.bpct))+'%');if(num(c.bflat))parts.push('개인 '+(num(c.bflat)>0?'+':'')+f1(num(c.bflat)));
     el.querySelector('[data-out=pctnote]').textContent=parts.length?parts.join(' · '):'';
     el.querySelector('[data-out=av]').textContent=s>0?f2(10000/s):'-';
     const th=el.querySelector('[data-out=th]');
@@ -1204,6 +1212,9 @@ function bindCoef(){
   ow.onchange=()=>{state.owned.has=ow.checked;update();};
   os.oninput=()=>{state.owned.sig=parseInt(os.value);osw.querySelector('.sigval').textContent=sigLabel(state.owned.sig);update();};
   if(!state.teamBuff)state.teamBuff={pct:0,flat:0};
+  {const tf=document.getElementById('tFlat'),tpa=document.getElementById('tPctAll');
+   if(document.activeElement!==tf)tf.value=num(state.teamBuff.flat)||0;if(document.activeElement!==tpa)tpa.value=num(state.teamBuff.pct)||0;
+   tf.oninput=()=>{state.teamBuff.flat=tf.value;update();};tpa.oninput=()=>{state.teamBuff.pct=tpa.value;update();};}
 
   if(!state.mode)state.mode='moc';
   const mr=document.getElementById('modeRow');
