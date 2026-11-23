@@ -511,6 +511,9 @@ function simAll(T,ov){
   const heldR=s=>s?s.R.reduce((a,r)=>a+r.amt,0):0;
   const snap=()=>({sp,laugh,man:manTurns>0,hid:swS?hid:null,th:spxS?thrill:null,R:chars.filter(c=>c!==evS).map(c=>({name:c.u.name,v:c===pearlS?pearlHold:heldR(c),cap:c===pearlS?pearlCap():null}))});
   const pTgt=pearlS?chars.find(s=>s!==pearlS&&s.u.slot===num(fx.pearlTgt)):null;
+  // [미학의 저본]: 전투 시작 = 진입 캐릭터(펄 비술) · 펄 필살기 후 = 필살기 대상 (v126)
+  const pEntry=fx.pearlEntry==null?-1:num(fx.pearlEntry);
+  let jeobon=!pearlS?null:pEntry===-2?null:pEntry>=0?(chars.find(s=>s!==pearlS&&s.u.slot===pEntry)||null):pTgt;
   const tbTgt=tbS?chars.find(s=>s!==tbS&&s.u.slot===num(fx.tbTgt)):null;
   const wTgt=aeonS?chars.find(s=>s!==aeonS&&s.u.slot===num(fx.wpTarget)):null;
   const pAdv=nEl>=3?30:nEl===2?15:10, pExtra=nEl>=4;
@@ -659,7 +662,7 @@ function simAll(T,ov){
           adv(pTgt,t,pAdv);
           if(eidOf(fx,'pearl')>=2){const others=chars.filter(o=>o!==pearlS&&o!==pTgt);others.forEach(o=>adv(o,t,pAdv));
             if(others.length)mark(t,`펄 2돌 → ${others.map(o=>o.u.name).join('·')} 행동 게이지 +${pAdv}%`,'pearlE2');}
-          if(pExtra)queue.push({s:pTgt,src:'펄 필살기',pearl:true,mk:marks.filter(m=>m.who==='pearl'&&m.k!=null).pop()});pearlA3=true;fired=true;}
+          if(pExtra)queue.push({s:pTgt,src:'펄 필살기',pearl:true,mk:marks.filter(m=>m.who==='pearl'&&m.k!=null).pop()});jeobon=pTgt;pearlA3=true;fired=true;}
         else if(k==='waven'&&s.E>=wCOST-1e-9){s.E-=wCOST;eGain(s,5);laughGain(6,t);zealGain(8,t);wUltTurns=4;setPct(s,'ult',30,t);
           mark(t,'어벤츄린 웨이브 필살기: 속도 +30% (4턴)','waven',{k:s.n});fired=true;}
         else if(k==='yaoguang'&&s.E>=180-1e-9){s.E-=180;eGain(s,5);const man=manTurns>0;if(aeonS&&man)eGain(s,aE2?30:12,true); // [환락만상] 중 필살기 후 에너지 고정 +12 (아하 2돌 +30)
@@ -684,7 +687,7 @@ function simAll(T,ov){
         const um=marks.slice(ml).find(m=>m.who===k&&m.k!=null); // 이번에 이 캐릭터가 쓴 필살기
         if(um&&(fx.eagle||[]).includes(s.u.slot)){adv(s,t,25);mark(t,`매 4세트 (${s.u.name}): 필살기 후 행동 게이지 +25%`,'eagle');}
         if(um){um.ui=ultCount[k]||0;ultCount[k]=um.ui+1;allyAct(s,t);um.pre=sb;um.post=snap();}
-        if(um&&pearlS&&s===pTgt&&pearlA3){pearlA3=false;eGain(pearlS,90,true);mark(t,`펄 추가 능력 3: ${s.u.name} 필살기 → 펄 에너지 +90`,'pearlA3');}
+        if(um&&pearlS&&jeobon&&s===jeobon&&pearlA3){pearlA3=false;eGain(pearlS,90,true);mark(t,`펄 추가 능력 3: 저본 ${s.u.name} 필살기 → 펄 에너지 +90`,'pearlA3');}
       }
       if(!fired)break;
     }
@@ -784,7 +787,10 @@ function renderSettings(marks,T){
     if(k==='aeon_aha'){body+=`<label class="f">전투 스킬 대상 <select data-fx="wpTarget" style="width:150px">${tOpts(k,fx.wpTarget,'없음 (일반 공격만)')}</select></label>
       <label class="chk"><input type="checkbox" data-fx="wpHeal"${fx.wpHeal?' checked':''}> 동료 힐·실드 받음 [원력] +1 <span class="note">— 전투 시작·필살기 직후</span></label>
       <div class="note">[원력] 8 도달 시 필살기 (최대 10) · 웃음 포인트 40 도달 시 +1 (아하 턴마다 다시 가능)</div>`;}
-    if(k==='pearl')body+=`<label class="f">필살기 대상 <select data-fx="pearlTgt" style="width:150px">${tOpts(k,fx.pearlTgt,'선택 안 함')}</select></label>`;
+    if(k==='pearl'){const pe=fx.pearlEntry==null?-1:num(fx.pearlEntry);
+      body+=`<label class="f">필살기 대상 <select data-fx="pearlTgt" style="width:150px">${tOpts(k,fx.pearlTgt,'선택 안 함')}</select></label>
+      <label class="f">전투 진입 캐릭터 <select data-fx="pearlEntry" style="width:150px"><option value="-1"${pe===-1?' selected':''}>필살기 대상과 같음</option>${act.filter(c=>c.key!=='pearl').map(c=>`<option value="${c.i}"${pe===c.i?' selected':''}>${c.name}</option>`).join('')}<option value="-2"${pe===-2?' selected':''}>비술 안 씀</option></select></label>
+      <div class="note">비술 [미학의 저본]은 전투에 진입한 캐릭터가 가져가요 → 그 캐릭터의 첫 필살기에 펄 에너지 +90 (추가 능력 3) · 펄 필살기 후엔 필살기 대상이 저본</div>`;}
     if(k==='trailblazer')body+=`<label class="f">필살기 대상 <select data-fx="tbTgt" style="width:150px">${tOpts(k,fx.tbTgt,'선택 안 함')}</select></label>`;
     if(k==='evanescia')body+=`<div class="note">에너지 240에서 필살기 (240 소모, 최대 480) · 시작 에너지 240 · [보상] 획득 = 같은 양 에너지 · 누적 에너지 240마다 [여우 선생님]</div>`;
     if(k==='waven')body+=`<label class="f">필살기 에너지 <input type="number" data-fx="wavCost" min="1" step="5" value="${num(fx.wavCost)||130}"></label><div class="note">추가 능력 2 (환락이 웨이브 1명뿐일 때): 동료 공격 후 [보상을] +2 · 웃음 포인트 +1 · 아하 속도 +25 (아하 타임 종료까지)<br>승격 (환락이 웨이브 + 에이언즈 아하 2명이고 [환락만상] 중): 위 효과 적용 + 모든 아군 속도 +15% · 동료 공격 시 추가로 [열의] +1 · 쾌감 포인트 +1 — 계산에 자동 반영</div>`;
@@ -1237,7 +1243,7 @@ function collectPayload(){
   o.marks.filter(m=>m.k!=null&&m.t<=T+EPS).forEach(m=>{ults[m.who]=(ults[m.who]||0)+1;});
   const planEdits=Object.values(state.plan||{}).reduce((a,p)=>a+Object.keys(p.a||{}).length+(p.hold||[]).length+Object.keys(p.ud||{}).length,0);
   return {session_id:anonId(),mode:state.mode,party,
-    settings:{cycles:cyc,buffOn:!!state.buffOn,rules:rules().filter(r=>num(r.v)).map(r=>({t:r.t,n:r.n,slot:r.slot,v:num(r.v),u:r.u})),presetBuffs:state.presetBuffs||{},teamPct:num((state.teamBuff||{}).pct),wpTarget:fx.wpTarget,pearlTgt:fx.pearlTgt,tbTgt:fx.tbTgt,swUlt:num(fx.swUlt)||60,wavCost:num(fx.wavCost)||130,orns:fx.orns||[],vonw:fx.vonw||[],eagle:fx.eagle||[],planEdits},
+    settings:{cycles:cyc,buffOn:!!state.buffOn,rules:rules().filter(r=>num(r.v)).map(r=>({t:r.t,n:r.n,slot:r.slot,v:num(r.v),u:r.u})),presetBuffs:state.presetBuffs||{},teamPct:num((state.teamBuff||{}).pct),wpTarget:fx.wpTarget,pearlTgt:fx.pearlTgt,pearlEntry:fx.pearlEntry==null?-1:num(fx.pearlEntry),tbTgt:fx.tbTgt,swUlt:num(fx.swUlt)||60,wavCost:num(fx.wavCost)||130,orns:fx.orns||[],vonw:fx.vonw||[],eagle:fx.eagle||[],planEdits},
     results:{T,ahaSpd:Math.round(ahaInfo().spd*10)/10,aha,ahaBonus,actions:acts,ults}};
 }
 // 수집: 방문(탭 세션)당 최종 1건 — 페이지를 나가거나 다른 앱/탭으로 갈 때 마지막 세팅만 전송, DB 트리거가 같은 visit_id의 이전 기록을 지움
