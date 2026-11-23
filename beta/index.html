@@ -186,6 +186,13 @@ tr.mine td{background:rgba(197,139,255,.08)}
 .pt-ch i{width:8px;height:8px;border-radius:50%;display:inline-block}
 .pt-stats{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12.5px;color:var(--muted)}
 .pt-stats b{color:var(--text);font-size:13.5px}
+.rl-head{margin:10px 0 6px;font-size:13.5px}
+.rl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:7px 8px;margin-bottom:6px}
+.rl select{width:auto;font-size:13px;padding:5px 6px}
+.rl input[type=number]{width:62px;padding:5px 6px;font-size:13px}
+.rl .rl-n{width:46px!important}
+.rl .rl-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px}
+.rl .rl-hit{flex-basis:100%;font-size:11.5px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -233,12 +240,10 @@ tr.mine td{background:rgba(197,139,255,.08)}
     <div class="foldbody">
     <div class="note" style="margin-bottom:4px">설정한 버프는 항상 계산에 반영돼요. 효광 2돌 속도 +12%는 「캐릭터별 설정」의 효광 성혼에서 설정해요.</div>
     <div id="presetBuffs" style="margin-top:6px"></div>
-    <div class="row" style="margin-top:8px;gap:6px 16px">
-      <label class="f">모든 아군 속도 + <input type="number" id="tFlat" step="0.1" style="width:80px"></label>
-      <label class="f">모든 아군 속도 % <input type="number" id="tPctAll" step="0.1" style="width:80px"></label>
-    </div>
-    <label class="f" id="balRow" style="margin-top:8px">이상중재 스테이지 효과 <select id="balSel" style="width:auto"><option value="">없음</option><option value="1">균형 (빠른 1명 -20% · 느린 1명 +15%)</option><option value="2">균형+ (빠른 2명 -20% · 느린 1명 +15%)</option></select></label>
-    <div class="note">콘텐츠 버프 등 (예: 모든 아군 속도 +12 → 고정값에 12) · 마이너스도 넣을 수 있어요 · %는 게임처럼 기초 속도 기준</div>
+    <div class="rl-head"><b>속도 효과</b> <span class="note" id="rlMode"></span></div>
+    <div id="rlList"></div>
+    <div class="row" style="margin-top:6px;gap:6px"><button class="btn" id="rlAdd">+ 효과 추가</button></div>
+    <div class="note" style="margin-top:6px">콘텐츠·스테이지 효과를 직접 넣어요 (예: 모든 아군 속도 +12, 가장 빠른 1명 -20%). 마이너스 가능 · %는 게임처럼 기초 속도 기준 · '가장 빠른/느린'은 이 목록을 적용하기 전 전투 시작 속도로 정해요 · 혼돈과 이상중재는 따로 저장돼요.</div>
     </div>
     </details>
   </section>
@@ -332,7 +337,7 @@ function fromDb(k){
 function defaultChars(){return [blank(),blank(),blank(),blank()];}
 let state={chars:defaultChars(),coef:{...DEFAULT_COEF},cycles:3,bpCycles:3,owned:{has:false,sig:0},mode:'moc',buffOn:true,teamBuff:{pct:0},presetBuffs:{gx:false}};
 try{const keys=[...(/\/beta\//.test(location.pathname)?['hsrSpdCalcBeta']:[]),'hsrSpdCalc','hsrSpdCalcV58','hsrSpdCalcV57','hsrSpdCalcV56','hsrSpdCalcV55','hsrSpdCalcV54','hsrSpdCalcV53'];let raw=null;for(const k of keys){raw=localStorage.getItem(k);if(raw)break;}const s=JSON.parse(raw||'null');if(s&&s.chars&&s.chars.length===4)state={...state,...s,coef:{...DEFAULT_COEF,...s.coef}};}catch(e){}
-migrateBuff();migrateEtc();migratePersonal();
+migrateBuff();migrateEtc();migratePersonal();migrateRules();
 // v118: 버프 토글 삭제 → 항상 적용. 예전에 '꺼짐'으로 저장된 버프 값은 결과가 바뀌지 않게 비움, 효광 2돌 체크는 효광 성혼 2로
 function migrateBuff(){if(state.buffMig)return;state.buffMig=1;
   if(state.buffOn===false){state.teamBuff={pct:0};state.presetBuffs={gx:false};(state.chars||[]).forEach(c=>{c.bpct=0;});}
@@ -340,6 +345,11 @@ function migrateBuff(){if(state.buffMig)return;state.buffMig=1;
   if(state.presetBuffs)delete state.presetBuffs.yg;state.buffOn=true;}
 function migrateEtc(){if(state.etcMig)return;state.etcMig=1;state.teamBuff={pct:0};(state.chars||[]).forEach(c=>{c.adv=0;});try{const er=(state.fx||{}).er||{};Object.values(er).forEach(e=>{if(e)e.other=0;});}catch(e){}}
 function migratePersonal(){if(state.persMig)return;state.persMig=1;(state.chars||[]).forEach(c=>{c.bpct=0;c.bflat=0;});} // v122: 개인 속도 버프 칸 삭제
+function migrateRules(){if(state.rlMig)return;const num=v=>parseFloat(v)||0; // 로드 시점엔 전역 num이 아직 없음
+  state.rlMig=1;if(!state.rules)state.rules={moc:[],aa:[]};
+  const tb=state.teamBuff||{};['moc','aa'].forEach(m=>{state.rules[m]=state.rules[m]||[];if(num(tb.flat))state.rules[m].push({t:'all',n:1,slot:0,v:num(tb.flat),u:'+'});if(num(tb.pct))state.rules[m].push({t:'all',n:1,slot:0,v:num(tb.pct),u:'%'});});
+  const bl=parseInt(state.bal)||0;if(bl){state.rules.aa.push({t:'fast',n:bl===2?2:1,slot:0,v:-20,u:'%'});state.rules.aa.push({t:'slow',n:1,slot:0,v:15,u:'%'});}
+  state.teamBuff={pct:0,flat:0};state.bal='';}
 function save(){try{localStorage.setItem(/\/beta\//.test(location.pathname)?'hsrSpdCalcBeta':'hsrSpdCalc',JSON.stringify(state));}catch(e){}}
 const active=()=>state.chars.map((c,i)=>({...c,i})).filter(c=>c.key!=='none');
 const isAeon=c=>c.key==='aeon_aha';
@@ -369,21 +379,26 @@ const ygInParty=()=>active().some(c=>c.key==='yaoguang');
 function pbBlocked(b){if(b.need&&!active().some(c=>c.key===b.need))return '— 효광이 파티에 없어서 적용 안 됨';if(b.needSlot&&active().length>=4)return '— 환락 캐릭터 4명으로 파티가 꽉 차서 곽향이 들어갈 자리가 없어 적용 안 됨';return '';}
 const ygE2=()=>ygInParty()&&eidOf(fxState(),'yaoguang')>=2; // 효광 2돌: 아군 전체 속도 +12% (성혼으로 자동)
 function presetPct(){const pb=state.presetBuffs||{};return PRESET_BUFFS.reduce((t,b)=>t+((pb[b.key]&&!pbBlocked(b))?b.pct:0),0)+(ygE2()?12:0);}
-function buffNames(){const a=[];if(ygE2())a.push('효광 2돌 +12%');PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))a.push(b.name+' +'+b.pct+'%');});const tb=state.teamBuff||{},sg=v=>(v>0?'+':'')+f1(v);if(num(tb.flat))a.push('모든 아군 '+sg(num(tb.flat)));if(num(tb.pct))a.push('모든 아군 '+sg(num(tb.pct))+'%');if(state.mode==='aa'&&parseInt(state.bal))a.push(parseInt(state.bal)===2?'균형+':'균형');return a;}
-function preBal(c){const b=state.teamBuff||{pct:0,flat:0};return baseSpd(c)*totalPct(c)/100+num(b.flat);}
-// 이상중재 '균형': 전투 시작 시 (다른 버프 반영 후) 속도가 가장 높은 1명(균형+는 2명) -20%, 가장 낮은 1명 +15% · 기초 속도 기준
-function balPct(c){const n=parseInt(state.bal)||0;if(!n||state.mode!=='aa')return 0;
-  const act=active();if(!act.length)return 0;
-  const sp=x=>num(x.spd)+(state.buffOn?preBal(x):0);
-  const desc=act.slice().sort((a,b)=>sp(b)-sp(a)||a.i-b.i),asc=act.slice().sort((a,b)=>sp(a)-sp(b)||a.i-b.i);
-  const ci=c.i!=null?c.i:state.chars.indexOf(c);
-  let p=0;if(desc.slice(0,n).some(x=>x.i===ci))p-=20;if(asc[0].i===ci)p+=15;return p;}
+function buffNames(fixedOnly){const a=[];if(ygE2())a.push('효광 2돌 +12%');PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))a.push(b.name+' +'+b.pct+'%');});if(!fixedOnly)rules().forEach(r=>{if(num(r.v))a.push(rlName(r));});return a;}
+// v124: 유저 지정 속도 효과 목록 (콘텐츠별)  rule = {t:'all'|'fast'|'slow'|'slot', n, slot, v, u:'%'|'+'}
+const RL_PRESET={bal1:[{t:'fast',n:1,v:-20,u:'%'},{t:'slow',n:1,v:15,u:'%'}],bal2:[{t:'fast',n:2,v:-20,u:'%'},{t:'slow',n:1,v:15,u:'%'}]};
+function rules(){if(!state.rules)state.rules={moc:[],aa:[]};const m=state.mode||'moc';if(!state.rules[m])state.rules[m]=[];return state.rules[m];}
+function preRule(x){return num(x.spd)+baseSpd(x)*presetPct()/100;} // 순위 기준: 효광 2돌·곽향 등 고정 버프까지
+function ruleHits(r){const act=active();if(!act.length)return [];
+  if(r.t==='all')return act.map(x=>x.i);
+  if(r.t==='slot')return act.filter(x=>x.i===parseInt(r.slot)).map(x=>x.i);
+  const n=Math.max(1,parseInt(r.n)||1),o=act.slice().sort((a,b)=>r.t==='fast'?(preRule(b)-preRule(a)||a.i-b.i):(preRule(a)-preRule(b)||a.i-b.i));
+  return o.slice(0,n).map(x=>x.i);}
+function ruleParts(c){const ci=c.i!=null?c.i:state.chars.indexOf(c),out=[];
+  rules().forEach(r=>{const v=num(r.v);if(!v||!ruleHits(r).includes(ci))return;out.push({amt:r.u==='%'?baseSpd(c)*v/100:v,label:rlName(r)});});return out;}
+function rlName(r){const v=num(r.v),sv=(v>0?'+':'')+f1(v)+(r.u==='%'?'%':'');
+  const t=r.t==='all'?'모든 아군':r.t==='fast'?`빠른 ${Math.max(1,parseInt(r.n)||1)}명`:r.t==='slow'?`느린 ${Math.max(1,parseInt(r.n)||1)}명`:`${(parseInt(r.slot)||0)+1}번 칸`;return t+' '+sv;}
 function buffAmt(c){if(!state.buffOn)return 0;
-  return preBal(c)+baseSpd(c)*balPct(c)/100;} // % 버프(기초 속도 기준) + 개인 고정값 + 모든 아군 고정값
-function totalPct(c){const b=state.teamBuff||{pct:0};return num(b.pct)+presetPct();}
-const autoPct=c=>presetPct()+num((state.teamBuff||{}).pct);
+  return baseSpd(c)*presetPct()/100+ruleParts(c).reduce((a,p)=>a+p.amt,0);} // % 버프(기초 속도 기준) + 개인 고정값 + 모든 아군 고정값
+function totalPct(c){return presetPct();}
+const autoPct=c=>presetPct();
 function finalSpd(c){return num(c.spd)+buffAmt(c);}
-const hasBuff=c=>Math.abs(totalPct(c))>1e-9||Math.abs(num((state.teamBuff||{}).flat))>1e-9||balPct(c)!==0;
+const hasBuff=c=>Math.abs(buffAmt(c))>1e-9||Math.abs(presetPct())>1e-9;
 function anyBuff(){return active().some(hasBuff);}
 // ===== 행동 게이지 증가 / 추가 턴 시뮬레이션 =====
 function fxState(){if(!state.fx)state.fx={orns:[],wpTarget:-1,wpHeal:false,pearlTgt:-1,tbTgt:-1,wavCost:130,swUlt:60,lc:{},er:{},eid:{}};const f=state.fx;f.ahaMode='auto';['lc','er','eid'].forEach(k=>{if(!f[k])f[k]={};});if(!f.orns)f.orns=[];if(!f.vonw)f.vonw=[];if(!f.msgr)f.msgr=[];if(!f.eagle)f.eagle=[];return f;}
@@ -1059,7 +1074,7 @@ function update(){
     el.querySelector('[data-out=buffed]').textContent=f1(set+withBuff(true,()=>buffAmt(c)));
     {const bb=el.querySelector('.buffbox');bb.style.display=hasBuff(c)?'':'none';}
     const pp=presetPct(), tpv=num((state.teamBuff||{}).pct);
-    const parts=buffNames().filter(x=>!/^균형/.test(x));{const bp=balPct(c);if(bp)parts.push((parseInt(state.bal)===2?'균형+ ':'균형 ')+(bp>0?'+':'')+bp+'%');}
+    const parts=buffNames(true).concat(ruleParts(c).map(p=>p.label));
     el.querySelector('[data-out=pctnote]').textContent=parts.length?parts.join(' · '):'';
     el.querySelector('[data-out=av]').textContent=s>0?f2(10000/s):'-';
     const th=el.querySelector('[data-out=th]');
@@ -1218,10 +1233,6 @@ function bindCoef(){
   ow.onchange=()=>{state.owned.has=ow.checked;update();};
   os.oninput=()=>{state.owned.sig=parseInt(os.value);osw.querySelector('.sigval').textContent=sigLabel(state.owned.sig);update();};
   if(!state.teamBuff)state.teamBuff={pct:0,flat:0};
-  {const bs=document.getElementById('balSel');bs.value=state.bal||'';bs.onchange=()=>{state.bal=bs.value;update();};}
-  {const tf=document.getElementById('tFlat'),tpa=document.getElementById('tPctAll');
-   if(document.activeElement!==tf)tf.value=num(state.teamBuff.flat)||0;if(document.activeElement!==tpa)tpa.value=num(state.teamBuff.pct)||0;
-   tf.oninput=()=>{state.teamBuff.flat=tf.value;update();};tpa.oninput=()=>{state.teamBuff.pct=tpa.value;update();};}
 
   if(!state.mode)state.mode='moc';
   const mr=document.getElementById('modeRow');
@@ -1248,7 +1259,7 @@ function collectPayload(){
   o.marks.filter(m=>m.k!=null&&m.t<=T+EPS).forEach(m=>{ults[m.who]=(ults[m.who]||0)+1;});
   const planEdits=Object.values(state.plan||{}).reduce((a,p)=>a+Object.keys(p.a||{}).length+(p.hold||[]).length+Object.keys(p.ud||{}).length,0);
   return {session_id:anonId(),mode:state.mode,party,
-    settings:{cycles:cyc,buffOn:!!state.buffOn,bal:state.mode==='aa'?(parseInt(state.bal)||0):0,presetBuffs:state.presetBuffs||{},teamPct:num((state.teamBuff||{}).pct),wpTarget:fx.wpTarget,pearlTgt:fx.pearlTgt,tbTgt:fx.tbTgt,swUlt:num(fx.swUlt)||60,wavCost:num(fx.wavCost)||130,orns:fx.orns||[],vonw:fx.vonw||[],eagle:fx.eagle||[],planEdits},
+    settings:{cycles:cyc,buffOn:!!state.buffOn,rules:rules().filter(r=>num(r.v)).map(r=>({t:r.t,n:r.n,slot:r.slot,v:num(r.v),u:r.u})),presetBuffs:state.presetBuffs||{},teamPct:num((state.teamBuff||{}).pct),wpTarget:fx.wpTarget,pearlTgt:fx.pearlTgt,tbTgt:fx.tbTgt,swUlt:num(fx.swUlt)||60,wavCost:num(fx.wavCost)||130,orns:fx.orns||[],vonw:fx.vonw||[],eagle:fx.eagle||[],planEdits},
     results:{T,ahaSpd:Math.round(ahaInfo().spd*10)/10,aha,ahaBonus,actions:acts,ults}};
 }
 // 수집: 방문(탭 세션)당 최종 1건 — 페이지를 나가거나 다른 앱/탭으로 갈 때 마지막 세팅만 전송, DB 트리거가 같은 visit_id의 이전 기록을 지움
@@ -1417,6 +1428,30 @@ document.querySelectorAll('#rvMode .mtab').forEach(b=>b.onclick=()=>{RV.mode=b.d
 document.getElementById('rvReload').onclick=()=>loadRank(true);
 if(location.hash==='#rank')setTimeout(()=>showView('rank'),0);
 window.addEventListener('hashchange',()=>{if(location.hash==='#rank')showView('rank');});
+// ===== v124: 속도 효과 목록 UI =====
+var RL_KEY='';
+function renderRules(force){const box=document.getElementById('rlList');if(!box)return;
+  document.getElementById('rlMode').textContent='· '+((MODES[state.mode]||{}).name||'')+' 전용';
+  const act=active(),R=rules();
+  const key=state.mode+'|'+R.map(r=>r.t).join(',')+'|'+state.chars.map(c=>c.key).join(',');
+  if(!force&&key===RL_KEY&&box.querySelectorAll('.rl').length===R.length){ // 구조가 같으면 '적용' 표시만 갱신 (입력 중인 칸을 다시 그리지 않음)
+    box.querySelectorAll('.rl').forEach((row,i)=>{const h=ruleHits(R[i]);row.querySelector('.rl-hit').textContent='적용: '+(h.length?h.map(k=>state.chars[k].name).join(', '):'없음');});return;}
+  RL_KEY=key;
+  box.innerHTML=R.length?R.map((r,i)=>{const hits=ruleHits(r);
+    return `<div class="rl" data-i="${i}"><select data-f="t"><option value="all"${r.t==='all'?' selected':''}>모든 아군</option><option value="fast"${r.t==='fast'?' selected':''}>가장 빠른</option><option value="slow"${r.t==='slow'?' selected':''}>가장 느린</option><option value="slot"${r.t==='slot'?' selected':''}>특정 칸</option></select>
+      ${r.t==='fast'||r.t==='slow'?`<input type="number" class="rl-n" data-f="n" min="1" max="4" step="1" value="${Math.max(1,parseInt(r.n)||1)}"><span class="note">명</span>`:''}
+      ${r.t==='slot'?`<select data-f="slot">${[0,1,2,3].map(k=>`<option value="${k}"${parseInt(r.slot)===k?' selected':''}>${k+1}번 칸${state.chars[k]&&state.chars[k].key!=='none'?' '+state.chars[k].name:''}</option>`).join('')}</select>`:''}
+      <span class="note">속도</span><input type="number" data-f="v" step="0.1" value="${num(r.v)||0}">
+      <select data-f="u"><option value="%"${r.u==='%'?' selected':''}>%</option><option value="+"${r.u!=='%'?' selected':''}>고정</option></select>
+      <button class="rl-x" data-del title="삭제">✕</button>
+      <div class="rl-hit">적용: ${hits.length?hits.map(k=>state.chars[k].name).join(', '):'없음'}</div></div>`;}).join(''):'<div class="note">효과 없음</div>';
+}
+(function(){const box=document.getElementById('rlList');
+  box.addEventListener('input',e=>{const row=e.target.closest('.rl'),f=e.target.dataset.f;if(!row||!f)return;const r=rules()[+row.dataset.i];r[f]=e.target.value;update();});
+  box.addEventListener('change',e=>{const row=e.target.closest('.rl'),f=e.target.dataset.f;if(!row||!f)return;const r=rules()[+row.dataset.i];r[f]=e.target.value;if(f==='t'&&!r.n)r.n=1;if(f==='t'&&r.slot==null)r.slot=0;update();});
+  box.addEventListener('pointerdown',e=>{if(!e.target.closest('[data-del]'))return;e.preventDefault();const row=e.target.closest('.rl');if(document.activeElement)document.activeElement.blur();rules().splice(+row.dataset.i,1);update();renderRules(true);});
+  document.getElementById('rlAdd').onclick=()=>{rules().push({t:'all',n:1,slot:0,v:0,u:'+'});update();};
+})();
 // ===== v105: 접기 요약 · 결과 요약 바 =====
 function afterUpdate(){
   try{
@@ -1432,7 +1467,7 @@ function afterUpdate(){
     if(sa){const on=[['fxMhState','아하 추가 능력 3'],['fxTechState','아하 비술']].filter(([id])=>{const el=document.getElementById(id);return el&&/적용/.test(el.textContent)&&!/미적용|안/.test(el.textContent);}).map(x=>x[1]);
       sa.textContent=on.length?on.join(' · ')+' 적용 중':'적용 없음';}
   }catch(e){}
-  {const br=document.getElementById('balRow');if(br)br.style.display=state.mode==='aa'?'':'none';}
+  renderRules();
   renderSumBar();
   try{scheduleRank();}catch(e){} // 초기화 전 호출은 무시 (마지막에 다시 호출됨)
 }
