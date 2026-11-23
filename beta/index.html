@@ -367,7 +367,7 @@ const sigBonus=c=>isAeon(c)?(SIG_SPD[parseInt(c.sig)||0]||0):0;
 function baseSpd(c){return num(c.base)+sigBonus(c);}
 const PRESET_BUFFS=[
   {key:'gx',name:'곽향 1돌',desc:'모든 아군 속도 +12% (곽향이 들어갈 빈 칸 필요)',pct:12,needSlot:true},
-  {key:'hy',name:'히아킨 2돌',desc:'히아킨 첫 행동 후부터 모든 아군 속도 +30% (히아킨이 들어갈 빈 칸 필요)',pct:30,needSlot:true,dyn:true},
+  {key:'hy',name:'히아킨 2돌',desc:'히아킨 첫 행동 후부터 모든 아군(히아킨 포함) 속도 +30% (히아킨이 들어갈 빈 칸 필요)',pct:30,needSlot:true,dyn:true},
 ];
 const ygInParty=()=>active().some(c=>c.key==='yaoguang');
 function pbBlocked(b){if(b.need&&!active().some(c=>c.key===b.need))return '— 효광이 파티에 없어서 적용 안 됨';if(b.needSlot){const pb=state.presetBuffs||{},sup=PRESET_BUFFS.filter(x=>x.needSlot&&pb[x.key]);const idx=sup.indexOf(b);const free=4-active().length;if(free<=0||(idx>=0&&idx>=free))return `— 환락 캐릭터로 칸이 차서 ${b.name.replace(/ \d돌$/,'')}이(가) 들어갈 자리가 없어 적용 안 됨`;}return '';}
