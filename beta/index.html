@@ -331,13 +331,14 @@ function fromDb(k){
 function defaultChars(){return [blank(),blank(),blank(),blank()];}
 let state={chars:defaultChars(),coef:{...DEFAULT_COEF},cycles:3,bpCycles:3,owned:{has:false,sig:0},mode:'moc',buffOn:true,teamBuff:{pct:0},presetBuffs:{gx:false}};
 try{const keys=[...(/\/beta\//.test(location.pathname)?['hsrSpdCalcBeta']:[]),'hsrSpdCalc','hsrSpdCalcV58','hsrSpdCalcV57','hsrSpdCalcV56','hsrSpdCalcV55','hsrSpdCalcV54','hsrSpdCalcV53'];let raw=null;for(const k of keys){raw=localStorage.getItem(k);if(raw)break;}const s=JSON.parse(raw||'null');if(s&&s.chars&&s.chars.length===4)state={...state,...s,coef:{...DEFAULT_COEF,...s.coef}};}catch(e){}
-migrateBuff();migrateEtc();
+migrateBuff();migrateEtc();migratePersonal();
 // v118: 버프 토글 삭제 → 항상 적용. 예전에 '꺼짐'으로 저장된 버프 값은 결과가 바뀌지 않게 비움, 효광 2돌 체크는 효광 성혼 2로
 function migrateBuff(){if(state.buffMig)return;state.buffMig=1;
   if(state.buffOn===false){state.teamBuff={pct:0};state.presetBuffs={gx:false};(state.chars||[]).forEach(c=>{c.bpct=0;});}
   else if(state.presetBuffs&&state.presetBuffs.yg){try{const f=state.fx||(state.fx={});f.eid=f.eid||{};f.eid.yaoguang=Math.max(2,parseInt(f.eid.yaoguang)||0);}catch(e){}}
   if(state.presetBuffs)delete state.presetBuffs.yg;state.buffOn=true;}
 function migrateEtc(){if(state.etcMig)return;state.etcMig=1;state.teamBuff={pct:0};(state.chars||[]).forEach(c=>{c.adv=0;});try{const er=(state.fx||{}).er||{};Object.values(er).forEach(e=>{if(e)e.other=0;});}catch(e){}}
+function migratePersonal(){if(state.persMig)return;state.persMig=1;(state.chars||[]).forEach(c=>{c.bpct=0;c.bflat=0;});} // v122: 개인 속도 버프 칸 삭제
 function save(){try{localStorage.setItem(/\/beta\//.test(location.pathname)?'hsrSpdCalcBeta':'hsrSpdCalc',JSON.stringify(state));}catch(e){}}
 const active=()=>state.chars.map((c,i)=>({...c,i})).filter(c=>c.key!=='none');
 const isAeon=c=>c.key==='aeon_aha';
@@ -369,11 +370,11 @@ const ygE2=()=>ygInParty()&&eidOf(fxState(),'yaoguang')>=2; // 효광 2돌: 아�
 function presetPct(){const pb=state.presetBuffs||{};return PRESET_BUFFS.reduce((t,b)=>t+((pb[b.key]&&!pbBlocked(b))?b.pct:0),0)+(ygE2()?12:0);}
 function buffNames(){const a=[];if(ygE2())a.push('효광 2돌 +12%');PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))a.push(b.name+' +'+b.pct+'%');});const tb=state.teamBuff||{},sg=v=>(v>0?'+':'')+f1(v);if(num(tb.flat))a.push('모든 아군 '+sg(num(tb.flat)));if(num(tb.pct))a.push('모든 아군 '+sg(num(tb.pct))+'%');return a;}
 function buffAmt(c){if(!state.buffOn)return 0;const b=state.teamBuff||{pct:0,flat:0};
-  return baseSpd(c)*totalPct(c)/100+num(c.bflat)+num(b.flat);} // % 버프(기초 속도 기준) + 개인 고정값 + 모든 아군 고정값
-function totalPct(c){const b=state.teamBuff||{pct:0};return num(c.bpct)+num(b.pct)+presetPct();}
+  return baseSpd(c)*totalPct(c)/100+num(b.flat);} // % 버프(기초 속도 기준) + 개인 고정값 + 모든 아군 고정값
+function totalPct(c){const b=state.teamBuff||{pct:0};return num(b.pct)+presetPct();}
 const autoPct=c=>presetPct()+num((state.teamBuff||{}).pct);
 function finalSpd(c){return num(c.spd)+buffAmt(c);}
-const hasBuff=c=>Math.abs(totalPct(c))>1e-9||Math.abs(num(c.bflat))>1e-9||Math.abs(num((state.teamBuff||{}).flat))>1e-9;
+const hasBuff=c=>Math.abs(totalPct(c))>1e-9||Math.abs(num((state.teamBuff||{}).flat))>1e-9;
 function anyBuff(){return active().some(hasBuff);}
 // ===== 행동 게이지 증가 / 추가 턴 시뮬레이션 =====
 function fxState(){if(!state.fx)state.fx={orns:[],wpTarget:-1,wpHeal:false,pearlTgt:-1,tbTgt:-1,wavCost:130,swUlt:60,lc:{},er:{},eid:{}};const f=state.fx;f.ahaMode='auto';['lc','er','eid'].forEach(k=>{if(!f[k])f[k]={};});if(!f.orns)f.orns=[];if(!f.vonw)f.vonw=[];if(!f.msgr)f.msgr=[];if(!f.eagle)f.eagle=[];return f;}
@@ -1017,10 +1018,6 @@ function renderChars(){
         <div class="final" style="border:none;padding-top:0;margin-top:0"><small>버프 후</small><b data-out="buffed" style="font-size:18px;color:var(--ok)"></b></div>
         <div class="note" data-out="pctnote" style="text-align:right"></div>
       </div>
-      <details class="cmore"${num(c.bpct)||num(c.bflat)?' open':''}><summary>추가 설정</summary>
-        <label class="f">개인 속도 % <input type="number" data-k="bpct" step="0.1" value="${num(c.bpct)||0}"></label>
-        <label class="f">개인 속도 + <input type="number" data-k="bflat" step="0.1" value="${num(c.bflat)||0}"></label>
-        <div class="note">이 캐릭터만 · 마이너스 가능 · %는 기초 속도 기준, +는 그대로 더함</div></details>
       <div data-out="th"></div>`;
     }
     d.innerHTML=inner;
@@ -1053,7 +1050,7 @@ function update(){
     el.querySelector('[data-out=buffed]').textContent=f1(set+withBuff(true,()=>buffAmt(c)));
     {const bb=el.querySelector('.buffbox');bb.style.display=hasBuff(c)?'':'none';}
     const pp=presetPct(), tpv=num((state.teamBuff||{}).pct);
-    const parts=buffNames();if(num(c.bpct))parts.push('개인 '+(num(c.bpct)>0?'+':'')+f1(num(c.bpct))+'%');if(num(c.bflat))parts.push('개인 '+(num(c.bflat)>0?'+':'')+f1(num(c.bflat)));
+    const parts=buffNames();
     el.querySelector('[data-out=pctnote]').textContent=parts.length?parts.join(' · '):'';
     el.querySelector('[data-out=av]').textContent=s>0?f2(10000/s):'-';
     const th=el.querySelector('[data-out=th]');
