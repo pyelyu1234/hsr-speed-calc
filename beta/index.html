@@ -275,20 +275,13 @@ tr.mine td{background:rgba(197,139,255,.08)}
     <div class="formula" id="ahaFormula"></div>
   </section>
   <section>
-    <h2>라운드별 행동 · 한 번 더 행동까지</h2>
+    <h2>사이클별 행동 · 한 번 더 행동까지</h2>
     <div class="row" style="margin-bottom:10px">
-      <label class="f" style="color:var(--text)">라운드 수 <input type="number" id="bpCycles" min="1" max="30" step="1"></label>
-    </div>
-    <div class="tbl"><table id="bpTable"></table></div>
-    <p class="note" style="margin:6px 0 0">위: 그 라운드 행동 횟수 · 아래: 그 라운드까지 한 번 더 행동하려면 필요한 속도 (괄호는 목표 속도, 소수 둘째 자리에서 올림)</p>
-  </section>
-  <section>
-    <h2>사이클별 행동 횟수</h2>
-    <div class="row" style="margin-bottom:10px">
-      <label class="f" style="color:var(--text)">계산할 사이클 수 <input type="number" id="cycles" min="1" max="30" step="1"></label>
+      <label class="f" style="color:var(--text)">사이클 수 <input type="number" id="cycles" min="1" max="30" step="1"></label>
       <span class="note" id="totalAV"></span>
     </div>
-    <div class="tbl"><table id="actTable"></table></div>
+    <div class="tbl"><table id="bpTable"></table></div>
+    <p class="note" style="margin:6px 0 0">위: 그 사이클 행동 횟수 (누적) · 아래: 그 사이클까지 한 번 더 행동하려면 필요한 속도 (괄호는 목표 속도, 소수 둘째 자리에서 올림) · 합계의 '보너스'는 보너스 턴 횟수</p>
   </section>
   <section id="secOrder">
     <h2>행동 순서 타임라인</h2>
@@ -1133,19 +1126,7 @@ function update(){
 
   // action table
   document.getElementById('totalAV').textContent=`${(MODES[state.mode]||MODES.moc).name} · 총 ${T} AV (0사이클 ${FC()} + 이후 100 × ${n-1})`;
-  let head='<tr><th>유닛</th><th>속도</th><th>AV</th>';
-  for(let k=0;k<n;k++)head+=`<th>${k}사이클</th>`;
-  head+='<th>합계</th></tr>';
-  let body='';
   const sims=units.map(u=>({u,ev:SIM.ev[u.id]||[]}));
-  sims.forEach(({u,ev})=>{
-    let r=`<tr><td><span class="dot" style="background:${u.color}"></span>${u.name}${u.startAdv?` <span class="note">(시작 +${f1(u.startAdv)}%)</span>`:''}</td><td>${f1(u.spd)}</td><td>${u.spd>0?f2(10000/u.spd):'-'}</td>`;
-    let prev=0;
-    for(let k=0;k<n;k++){const c=ev.filter(e=>e.t<=totalAV(k+1)+EPS).length;r+=`<td>${c-prev}</td>`;prev=c;}
-    const ex=ev.filter(e=>e.extra).length;
-    r+=`<td><b>${prev}</b>${ex?` <span class="note">(추가 ${ex})</span>`:''}</td></tr>`;body+=r;
-  });
-  document.getElementById('actTable').innerHTML=head+body;
 
   renderPlan(T,SIM,sims);
   renderSettings(autoMarks,T);
@@ -1160,27 +1141,25 @@ function update(){
     no++;tl+=`<tr><td>${no}</td><td>${Math.round(e.t)}</td><td class="cyc">${cyc}</td><td style="text-align:left"><span class="dot" style="background:${e.u.color}"></span>${e.u.name}${e.act?` <span class="note">${ACT_NAME[e.act]||''}${e.traps!=null?` (함정 ${e.traps}회)`:''}${e.fb?` · ${e.fb}`:''}</span>`:''}${e.extra?` <span class="pill p-warn">보너스 턴 · ${e.src}</span>`:''}${e.post?`<div class="note" style="font-size:11.5px">행동 후 SP ${Math.round(e.post.sp)} · ${e.post.man?'쾌감':'웃음'} ${f1(e.post.laugh)}${e.post.hid!=null?` · 히든 ${f1(e.post.hid)}`:''}${e.post.th!=null?` · 킬링 ${Math.round(e.post.th)}`:''}</div>`:''}</td></tr>`;});
   document.getElementById('timeline').innerHTML=tl;
 
-  // breakpoints: 라운드별 행동 횟수 / 한 번 더 행동까지 필요한 속도
-  const bn=Math.max(1,Math.min(30,Math.round(num(state.bpCycles))||1));
-  CUR={units,T:totalAV(bn)};
-  const SIMB=simAll(totalAV(bn));
+  // 사이클별 행동 · 한 번 더 행동까지 (v125: 사이클 표와 합침)
   let bp='<tr><th>유닛</th>';
-  for(let r=1;r<=bn;r++)bp+=`<th>${r}라운드<br><span style="font-weight:400">(${totalAV(r)} AV까지)</span></th>`;
-  bp+='</tr>';
+  for(let r=0;r<n;r++)bp+=`<th>${r}사이클<br><span style="font-weight:400">(${totalAV(r+1)} AV까지)</span></th>`;
+  bp+='<th>합계</th></tr>';
   units.forEach(u=>{
-    const ev=SIMB.ev[u.id]||[];
-    let row=`<tr><td><span class="dot" style="background:${u.color}"></span>${u.name}<br><span class="note">속도 ${f1(u.spd)}</span></td>`;
+    const ev=SIM.ev[u.id]||[];
+    let row=`<tr><td><span class="dot" style="background:${u.color}"></span>${u.name}<br><span class="note">속도 ${f1(u.spd)} · AV ${u.spd>0?f2(10000/u.spd):'-'}${u.startAdv?` · 시작 +${f1(u.startAdv)}%`:''}</span></td>`;
     let prev=0;
-    for(let r=1;r<=bn;r++){
+    for(let r=1;r<=n;r++){
       const Tr=totalAV(r), cum=ev.filter(e=>e.t<=Tr+EPS).length, inR=cum-prev; prev=cum;
       const nd=needFor(u,cum+1,Tr);
       const tgt=ceil1(nd);
       const need=isFinite(nd)?`<span style="color:var(--warn);font-weight:700">+${ceil1(Math.max(0,tgt-u.spd)).toFixed(1)}</span> <span class="note">(${tgt.toFixed(1)})</span>`:'<span class="note">불가</span>';
       row+=`<td><b style="font-size:15px">${inR}회</b> <span class="note">누적 ${cum}</span><br>${need}</td>`;
     }
+    const ex=ev.filter(e=>e.t<=T+EPS&&e.extra).length;
+    row+=`<td><b style="font-size:15px">${prev}회</b>${ex?`<br><span class="note">보너스 ${ex}</span>`:''}</td>`;
     bp+=row+'</tr>';
   });
-  CUR={units,T};
   document.getElementById('bpTable').innerHTML=bp;
   save();
   if(typeof afterUpdate==='function')afterUpdate();
@@ -1239,7 +1218,6 @@ function bindCoef(){
   mr.innerHTML='<span class="note" style="color:var(--text)">콘텐츠</span>'+Object.entries(MODES).map(([k,m])=>`<button class="btn mode${state.mode===k?' primary':''}" data-mode="${k}">${m.name} <span class="note" style="color:inherit;opacity:.8">(0사이클 ${m.first} AV)</span></button>`).join('');
   mr.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.mode=b.dataset.mode;mr.querySelectorAll('button').forEach(x=>x.classList.toggle('primary',x===b));update();});
   const cy=document.getElementById('cycles');cy.value=state.cycles;cy.oninput=()=>{state.cycles=cy.value;update();};
-  const bc=document.getElementById('bpCycles');bc.value=state.bpCycles;bc.oninput=()=>{state.bpCycles=bc.value;update();};
 }
 document.getElementById('reset').onclick=()=>{state={chars:defaultChars(),coef:{...DEFAULT_COEF},cycles:3,bpCycles:3,owned:{has:false,sig:0},mode:'moc',buffOn:true,teamBuff:{pct:0},presetBuffs:{gx:false}};state.fx=null;state.plan={};PICK=null;bindCoef();renderChars();};
 
