@@ -233,9 +233,6 @@ tr.mine td{background:rgba(197,139,255,.08)}
     <div class="foldbody">
     <div class="note" style="margin-bottom:4px">설정한 버프는 항상 계산에 반영돼요. 효광 2돌 속도 +12%는 「캐릭터별 설정」의 효광 성혼에서 설정해요.</div>
     <div id="presetBuffs" style="margin-top:6px"></div>
-    <div class="row" style="margin-top:6px">
-      <label class="f">기타 파티 전체 속도 버프 % <input type="number" id="tPct" step="0.1"></label>
-    </div>
     </div>
     </details>
   </section>
@@ -329,12 +326,13 @@ function fromDb(k){
 function defaultChars(){return [blank(),blank(),blank(),blank()];}
 let state={chars:defaultChars(),coef:{...DEFAULT_COEF},cycles:3,bpCycles:3,owned:{has:false,sig:0},mode:'moc',buffOn:true,teamBuff:{pct:0},presetBuffs:{gx:false}};
 try{const keys=[...(/\/beta\//.test(location.pathname)?['hsrSpdCalcBeta']:[]),'hsrSpdCalc','hsrSpdCalcV58','hsrSpdCalcV57','hsrSpdCalcV56','hsrSpdCalcV55','hsrSpdCalcV54','hsrSpdCalcV53'];let raw=null;for(const k of keys){raw=localStorage.getItem(k);if(raw)break;}const s=JSON.parse(raw||'null');if(s&&s.chars&&s.chars.length===4)state={...state,...s,coef:{...DEFAULT_COEF,...s.coef}};}catch(e){}
-migrateBuff();
+migrateBuff();migrateEtc();
 // v118: 버프 토글 삭제 → 항상 적용. 예전에 '꺼짐'으로 저장된 버프 값은 결과가 바뀌지 않게 비움, 효광 2돌 체크는 효광 성혼 2로
 function migrateBuff(){if(state.buffMig)return;state.buffMig=1;
   if(state.buffOn===false){state.teamBuff={pct:0};state.presetBuffs={gx:false};(state.chars||[]).forEach(c=>{c.bpct=0;});}
   else if(state.presetBuffs&&state.presetBuffs.yg){try{const f=state.fx||(state.fx={});f.eid=f.eid||{};f.eid.yaoguang=Math.max(2,parseInt(f.eid.yaoguang)||0);}catch(e){}}
   if(state.presetBuffs)delete state.presetBuffs.yg;state.buffOn=true;}
+function migrateEtc(){if(state.etcMig)return;state.etcMig=1;state.teamBuff={pct:0};(state.chars||[]).forEach(c=>{c.adv=0;});try{const er=(state.fx||{}).er||{};Object.values(er).forEach(e=>{if(e)e.other=0;});}catch(e){}}
 function save(){try{localStorage.setItem(/\/beta\//.test(location.pathname)?'hsrSpdCalcBeta':'hsrSpdCalc',JSON.stringify(state));}catch(e){}}
 const active=()=>state.chars.map((c,i)=>({...c,i})).filter(c=>c.key!=='none');
 const isAeon=c=>c.key==='aeon_aha';
@@ -378,7 +376,7 @@ const hasKey=k=>active().find(c=>c.key===k);
 function buildUnits(ahaSpd,withAha){
   const fx=fxState(), act=active();
   const units=act.map(c=>{
-    let sa=num(c.adv);
+    let sa=0; // v119: 기타 전투 시작 게이지 칸 삭제
     if(isAeon(c))sa+=30;
     if((fx.orns||[]).includes(c.i))sa+=40;
     if((fx.vonw||[]).includes(c.i)&&num(c.spd)>=120)sa+=40; // 바커공: 속도 120 이상 전투 시작 게이지 +40%
@@ -412,7 +410,7 @@ function lcOf(fx,k){return !!(fx.lc||{})[k];}
 function lcS(fx,k){return Math.min(5,Math.max(1,parseInt((fx.lcS||{})[k])||1));}
 const swLcLaugh=fx=>[20,25,30,35,40][lcS(fx,'silverwolf999')-1];
 const swLcLabel=v=>v?`${v}중첩 (웃음 +${[20,25,30,35,40][v-1]})`:'미착용';
-function erOf(fx,k){const e=(fx.er||{})[k]||{};const sl=(active().find(a=>a.key===k)||{}).i;const vw=sl!=null&&(fx.vonw||[]).includes(sl);return 1+(e.rope?ROPE:0)/100+((e.orn||vw)?ORN:0)/100+num(e.other)/100+(k==='yaoguang'&&lcOf(fx,k)?0.12:0)+(k==='evanescia'&&lcOf(fx,k)?0.208:0);}
+function erOf(fx,k){const e=(fx.er||{})[k]||{};const sl=(active().find(a=>a.key===k)||{}).i;const vw=sl!=null&&(fx.vonw||[]).includes(sl);return 1+(e.rope?ROPE:0)/100+((e.orn||vw)?ORN:0)/100+(k==='yaoguang'&&lcOf(fx,k)?0.12:0)+(k==='evanescia'&&lcOf(fx,k)?0.208:0);}
 const ORDER={pearl:104,yaoguang:116,trailblazer:120,sparxie:144,evanescia:146,waven:156,silverwolf999:999,aeon_aha:99999};
 function planOf(k){if(!state.plan)state.plan={};if(!state.plan[k])state.plan[k]={a:{},hold:[]};const p=state.plan[k];if(!p.a)p.a={};if(!p.hold)p.hold=[];if(!p.ud)p.ud={};return p;}
 function defaultAct(k,n){if(k==='yaoguang')return n%3===2?'skill':'basic';return cfgOf(k).acts[0];}
@@ -770,7 +768,7 @@ function renderSettings(marks,T){
       <div class="note">60 이상에서 사용 가능 · 최대 300 (에이언즈 아하 [환락만상] 중 360, 에이언즈 아하 2돌이면 999)</div>`;}
     if(k==='silverwolf999'){const v=lcOf(fx,k)?lcS(fx,k):0;body+=`<div class="sig"><div class="sighead"><span>전용 광추 (확실한 승리)</span><b class="sigval" data-lcsv>${swLcLabel(v)}</b></div><input type="range" min="0" max="5" step="1" data-lcs="${k}" value="${v}"><div class="sigticks"><span>미착용</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div></div><div class="note">필살기 시 웃음 포인트 획득 · 일반 공격 3회마다 재사용</div>`;}
     else if(LC_INFO[k])body+=`<label class="chk"><input type="checkbox" data-lc="${k}"${lcOf(fx,k)?' checked':''}> ${LC_INFO[k]}</label>`;
-    if(cfgOf(k).energy)body+=`<label class="f">기타 에너지 회복 효율 % <input type="number" data-er="${k}|other" step="0.1" value="${er.other||0}"></label><div class="note">매듭·장신구 에너지 회복 효율은 「유물 · 장신구」에서 설정해요.</div>`;
+    if(cfgOf(k).energy)body+=`<div class="note">매듭·장신구 에너지 회복 효율은 「유물 · 장신구」에서 설정해요.</div>`;
     if(EID_INFO[k]){const e=eidOf(fx,k);body+=`<label class="f">성혼 <select data-eid="${k}" style="width:90px">${[0,1,2,3,4,5,6].map(v=>`<option value="${v}"${e===v?' selected':''}>${v}돌</option>`).join('')}</select></label>
       <div class="note">${EID_INFO[k].map(([lv,txt])=>`<div class="eidl${e>=lv?' on':''}">${e>=lv?'✓ ':''}${txt}</div>`).join('')}</div>`;}
     body+=`<div data-res="${k}" style="margin-top:6px"></div>`;
@@ -1013,10 +1011,8 @@ function renderChars(){
         <div class="final" style="border:none;padding-top:0;margin-top:0"><small>버프 후</small><b data-out="buffed" style="font-size:18px;color:var(--ok)"></b></div>
         <div class="note" data-out="pctnote" style="text-align:right"></div>
       </div>
-      <details class="cmore"${num(c.adv)||num(c.bpct)?' open':''}><summary>추가 설정</summary>
-        <label class="f">개인 속도 버프 % <input type="number" data-k="bpct" step="0.1" value="${num(c.bpct)||0}"></label>
-        <label class="f">전투 시작 게이지 % <input type="number" data-k="adv" min="0" max="100" step="1" value="${c.adv||0}"></label>
-        <div class="note">게이지: 아하 추가 능력 3·장신구 외 다른 효과</div></details>
+      <details class="cmore"${num(c.bpct)?' open':''}><summary>추가 설정</summary>
+        <label class="f">개인 속도 버프 % <input type="number" data-k="bpct" step="0.1" value="${num(c.bpct)||0}"></label></details>
       <div data-out="th"></div>`;
     }
     d.innerHTML=inner;
@@ -1208,9 +1204,7 @@ function bindCoef(){
   ow.onchange=()=>{state.owned.has=ow.checked;update();};
   os.oninput=()=>{state.owned.sig=parseInt(os.value);osw.querySelector('.sigval').textContent=sigLabel(state.owned.sig);update();};
   if(!state.teamBuff)state.teamBuff={pct:0,flat:0};
-  const tp=document.getElementById('tPct');
-  tp.value=state.teamBuff.pct;
-  tp.oninput=()=>{state.teamBuff.pct=tp.value;update();};
+
   if(!state.mode)state.mode='moc';
   const mr=document.getElementById('modeRow');
   mr.innerHTML='<span class="note" style="color:var(--text)">콘텐츠</span>'+Object.entries(MODES).map(([k,m])=>`<button class="btn mode${state.mode===k?' primary':''}" data-mode="${k}">${m.name} <span class="note" style="color:inherit;opacity:.8">(0사이클 ${m.first} AV)</span></button>`).join('');
