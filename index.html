@@ -231,11 +231,8 @@ tr.mine td{background:rgba(197,139,255,.08)}
     <details data-fold="foldBuff">
     <summary><h2>전투 중 속도 버프<span class="sumtxt" id="sumBuff"></span></h2></summary>
     <div class="foldbody">
-    <label class="chk" style="font-size:14px"><input type="checkbox" id="buffOn"> 속도 버프 적용해서 계산하기</label>
+    <div class="note" style="margin-bottom:4px">설정한 버프는 항상 계산에 반영돼요. 효광 2돌 속도 +12%는 「캐릭터별 설정」의 효광 성혼에서 설정해요.</div>
     <div id="presetBuffs" style="margin-top:6px"></div>
-    <div class="row" style="margin-top:6px">
-      <label class="f">기타 파티 전체 속도 버프 % <input type="number" id="tPct" step="0.1"></label>
-    </div>
     </div>
     </details>
   </section>
@@ -327,8 +324,15 @@ function fromDb(k){
   const d=dbOf(k);return {key:k,name:d.name,base:d.base,spd:d.base,sig:0};
 }
 function defaultChars(){return [blank(),blank(),blank(),blank()];}
-let state={chars:defaultChars(),coef:{...DEFAULT_COEF},cycles:3,bpCycles:3,owned:{has:false,sig:0},mode:'moc',buffOn:false,teamBuff:{pct:0},presetBuffs:{yg:false,gx:false}};
+let state={chars:defaultChars(),coef:{...DEFAULT_COEF},cycles:3,bpCycles:3,owned:{has:false,sig:0},mode:'moc',buffOn:true,teamBuff:{pct:0},presetBuffs:{gx:false}};
 try{const keys=[...(/\/beta\//.test(location.pathname)?['hsrSpdCalcBeta']:[]),'hsrSpdCalc','hsrSpdCalcV58','hsrSpdCalcV57','hsrSpdCalcV56','hsrSpdCalcV55','hsrSpdCalcV54','hsrSpdCalcV53'];let raw=null;for(const k of keys){raw=localStorage.getItem(k);if(raw)break;}const s=JSON.parse(raw||'null');if(s&&s.chars&&s.chars.length===4)state={...state,...s,coef:{...DEFAULT_COEF,...s.coef}};}catch(e){}
+migrateBuff();migrateEtc();
+// v118: 버프 토글 삭제 → 항상 적용. 예전에 '꺼짐'으로 저장된 버프 값은 결과가 바뀌지 않게 비움, 효광 2돌 체크는 효광 성혼 2로
+function migrateBuff(){if(state.buffMig)return;state.buffMig=1;
+  if(state.buffOn===false){state.teamBuff={pct:0};state.presetBuffs={gx:false};(state.chars||[]).forEach(c=>{c.bpct=0;});}
+  else if(state.presetBuffs&&state.presetBuffs.yg){try{const f=state.fx||(state.fx={});f.eid=f.eid||{};f.eid.yaoguang=Math.max(2,parseInt(f.eid.yaoguang)||0);}catch(e){}}
+  if(state.presetBuffs)delete state.presetBuffs.yg;state.buffOn=true;}
+function migrateEtc(){if(state.etcMig)return;state.etcMig=1;state.teamBuff={pct:0};(state.chars||[]).forEach(c=>{c.adv=0;});try{const er=(state.fx||{}).er||{};Object.values(er).forEach(e=>{if(e)e.other=0;});}catch(e){}}
 function save(){try{localStorage.setItem(/\/beta\//.test(location.pathname)?'hsrSpdCalcBeta':'hsrSpdCalc',JSON.stringify(state));}catch(e){}}
 const active=()=>state.chars.map((c,i)=>({...c,i})).filter(c=>c.key!=='none');
 const isAeon=c=>c.key==='aeon_aha';
@@ -352,17 +356,19 @@ const AEON_BASE=94; // 미착용, 중첩 1~5
 const sigBonus=c=>isAeon(c)?(SIG_SPD[parseInt(c.sig)||0]||0):0;
 function baseSpd(c){return num(c.base)+sigBonus(c);}
 const PRESET_BUFFS=[
-  {key:'yg',name:'효광 2돌',desc:'아군 전체 속도 +12%',pct:12,need:'yaoguang'},
   {key:'gx',name:'곽향 1돌',desc:'모든 아군 속도 +12% (곽향이 들어갈 빈 칸 필요)',pct:12,needSlot:true},
 ];
 const ygInParty=()=>active().some(c=>c.key==='yaoguang');
 function pbBlocked(b){if(b.need&&!active().some(c=>c.key===b.need))return '— 효광이 파티에 없어서 적용 안 됨';if(b.needSlot&&active().length>=4)return '— 환락 캐릭터 4명으로 파티가 꽉 차서 곽향이 들어갈 자리가 없어 적용 안 됨';return '';}
-function presetPct(){const pb=state.presetBuffs||{};return PRESET_BUFFS.reduce((t,b)=>t+((pb[b.key]&&!pbBlocked(b))?b.pct:0),0);}
+const ygE2=()=>ygInParty()&&eidOf(fxState(),'yaoguang')>=2; // 효광 2돌: 아군 전체 속도 +12% (성혼으로 자동)
+function presetPct(){const pb=state.presetBuffs||{};return PRESET_BUFFS.reduce((t,b)=>t+((pb[b.key]&&!pbBlocked(b))?b.pct:0),0)+(ygE2()?12:0);}
+function buffNames(){const a=[];if(ygE2())a.push('효광 2돌 +12%');PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))a.push(b.name+' +'+b.pct+'%');});const tp=num((state.teamBuff||{}).pct);if(tp)a.push('기타 +'+tp+'%');return a;}
 function buffAmt(c){if(!state.buffOn)return 0;const b=state.teamBuff||{pct:0,flat:0};
   return baseSpd(c)*totalPct(c)/100;}
 function totalPct(c){const b=state.teamBuff||{pct:0};return num(c.bpct)+num(b.pct)+presetPct();}
 const autoPct=c=>presetPct()+num((state.teamBuff||{}).pct);
 function finalSpd(c){return num(c.spd)+buffAmt(c);}
+function anyBuff(){return active().some(c=>Math.abs(totalPct(c))>1e-9);}
 // ===== 행동 게이지 증가 / 추가 턴 시뮬레이션 =====
 function fxState(){if(!state.fx)state.fx={orns:[],wpTarget:-1,wpHeal:false,pearlTgt:-1,tbTgt:-1,wavCost:130,swUlt:60,lc:{},er:{},eid:{}};const f=state.fx;f.ahaMode='auto';['lc','er','eid'].forEach(k=>{if(!f[k])f[k]={};});if(!f.orns)f.orns=[];if(!f.vonw)f.vonw=[];if(!f.msgr)f.msgr=[];if(!f.eagle)f.eagle=[];return f;}
 function parseTimes(str){return String(str||'').split(/[,\s]+/).map(parseFloat).filter(x=>isFinite(x)&&x>=0).sort((a,b)=>a-b);}
@@ -370,7 +376,7 @@ const hasKey=k=>active().find(c=>c.key===k);
 function buildUnits(ahaSpd,withAha){
   const fx=fxState(), act=active();
   const units=act.map(c=>{
-    let sa=num(c.adv);
+    let sa=0; // v119: 기타 전투 시작 게이지 칸 삭제
     if(isAeon(c))sa+=30;
     if((fx.orns||[]).includes(c.i))sa+=40;
     if((fx.vonw||[]).includes(c.i)&&num(c.spd)>=120)sa+=40; // 바커공: 속도 120 이상 전투 시작 게이지 +40%
@@ -404,7 +410,7 @@ function lcOf(fx,k){return !!(fx.lc||{})[k];}
 function lcS(fx,k){return Math.min(5,Math.max(1,parseInt((fx.lcS||{})[k])||1));}
 const swLcLaugh=fx=>[20,25,30,35,40][lcS(fx,'silverwolf999')-1];
 const swLcLabel=v=>v?`${v}중첩 (웃음 +${[20,25,30,35,40][v-1]})`:'미착용';
-function erOf(fx,k){const e=(fx.er||{})[k]||{};const sl=(active().find(a=>a.key===k)||{}).i;const vw=sl!=null&&(fx.vonw||[]).includes(sl);return 1+(e.rope?ROPE:0)/100+((e.orn||vw)?ORN:0)/100+num(e.other)/100+(k==='yaoguang'&&lcOf(fx,k)?0.12:0)+(k==='evanescia'&&lcOf(fx,k)?0.208:0);}
+function erOf(fx,k){const e=(fx.er||{})[k]||{};const sl=(active().find(a=>a.key===k)||{}).i;const vw=sl!=null&&(fx.vonw||[]).includes(sl);return 1+(e.rope?ROPE:0)/100+((e.orn||vw)?ORN:0)/100+(k==='yaoguang'&&lcOf(fx,k)?0.12:0)+(k==='evanescia'&&lcOf(fx,k)?0.208:0);}
 const ORDER={pearl:104,yaoguang:116,trailblazer:120,sparxie:144,evanescia:146,waven:156,silverwolf999:999,aeon_aha:99999};
 function planOf(k){if(!state.plan)state.plan={};if(!state.plan[k])state.plan[k]={a:{},hold:[]};const p=state.plan[k];if(!p.a)p.a={};if(!p.hold)p.hold=[];if(!p.ud)p.ud={};return p;}
 function defaultAct(k,n){if(k==='yaoguang')return n%3===2?'skill':'basic';return cfgOf(k).acts[0];}
@@ -728,7 +734,7 @@ const EID_INFO={
   pearl:[[2,'2돌: 필살기 시 다른 환락 아군도 행동 게이지 증가 · 보너스 턴 웃음 포인트 2배']],
   trailblazer:[[1,'1돌: 전투 스킬마다 다음 필살기 대상 [보상을] +2 (최대 3스택)']],
   waven:[[1,'1돌: [열의] 10/20/30 도달마다 [건배!] 발동'],[2,'2돌: [열의] 최대 50 · 40/50 도달 시도 [건배!] · 환락 스킬 후 [열의] +4'],[6,'6돌: 환락 스킬 2회 후 모든 환락 스킬이 [올인!] (아하 타임 밖에서는 [열의] 소모 없음)']],
-  yaoguang:[[1,'1돌: 필살기 아하 보너스 턴 웃음 포인트 40으로 고정 집계']],
+  yaoguang:[[1,'1돌: 필살기 아하 보너스 턴 웃음 포인트 40으로 고정 집계'],[2,'2돌: 아군 전체 속도 +12% (속도 계산에 자동 반영)']],
   sparxie:[[1,'1돌: 아하 타임 종료 시 웃음 포인트 +5'],[2,'2돌: 아하 타임 종료 시 보너스 턴 1개'],[4,'4돌: 필살기 웃음 포인트 +5']],
   silverwolf999:[[1,'1돌: [무적 플레이어] 종료 시 히든 스코어 20% 유지'],[2,'2돌: [무적 플레이어] 중 히든 스코어 120마다 보너스 턴']],
   evanescia:[[1,'1돌: [여우 선생님] 공격 후 환락 스킬 추가 발동 · 환락 스킬 [보상] +10'],[2,'2돌: 추가 능력 1·3의 [보상] 획득량 +50%/+100%'],[6,'6돌: 첫 필살기와 이후 4회마다 에너지 고정 +120']],
@@ -762,7 +768,7 @@ function renderSettings(marks,T){
       <div class="note">60 이상에서 사용 가능 · 최대 300 (에이언즈 아하 [환락만상] 중 360, 에이언즈 아하 2돌이면 999)</div>`;}
     if(k==='silverwolf999'){const v=lcOf(fx,k)?lcS(fx,k):0;body+=`<div class="sig"><div class="sighead"><span>전용 광추 (확실한 승리)</span><b class="sigval" data-lcsv>${swLcLabel(v)}</b></div><input type="range" min="0" max="5" step="1" data-lcs="${k}" value="${v}"><div class="sigticks"><span>미착용</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div></div><div class="note">필살기 시 웃음 포인트 획득 · 일반 공격 3회마다 재사용</div>`;}
     else if(LC_INFO[k])body+=`<label class="chk"><input type="checkbox" data-lc="${k}"${lcOf(fx,k)?' checked':''}> ${LC_INFO[k]}</label>`;
-    if(cfgOf(k).energy)body+=`<label class="f">기타 에너지 회복 효율 % <input type="number" data-er="${k}|other" step="0.1" value="${er.other||0}"></label><div class="note">매듭·장신구 에너지 회복 효율은 「유물 · 장신구」에서 설정해요.</div>`;
+    if(cfgOf(k).energy)body+=`<div class="note">매듭·장신구 에너지 회복 효율은 「유물 · 장신구」에서 설정해요.</div>`;
     if(EID_INFO[k]){const e=eidOf(fx,k);body+=`<label class="f">성혼 <select data-eid="${k}" style="width:90px">${[0,1,2,3,4,5,6].map(v=>`<option value="${v}"${e===v?' selected':''}>${v}돌</option>`).join('')}</select></label>
       <div class="note">${EID_INFO[k].map(([lv,txt])=>`<div class="eidl${e>=lv?' on':''}">${e>=lv?'✓ ':''}${txt}</div>`).join('')}</div>`;}
     body+=`<div data-res="${k}" style="margin-top:6px"></div>`;
@@ -1002,13 +1008,11 @@ function renderChars(){
       ${isAeon(c)?sigSlider('data-sig',parseInt(c.sig)||0):''}
       <div class="myspd"><small>내 속도</small><input type="number" data-k="spd" step="0.1" value="${c.spd}" inputmode="decimal"></div>
       <div class="buffbox">
-        <label class="f">버프 % <input type="number" data-k="bpct" step="0.1" value="${f1(totalPct(c))}"></label>
-        <div class="note" data-out="pctnote" style="text-align:right;margin-top:-4px"></div>
-        <div class="final" style="border:none;padding-top:0;margin-top:2px"><small>버프 후</small><b data-out="buffed" style="font-size:18px;color:var(--ok)"></b></div>
+        <div class="final" style="border:none;padding-top:0;margin-top:0"><small>버프 후</small><b data-out="buffed" style="font-size:18px;color:var(--ok)"></b></div>
+        <div class="note" data-out="pctnote" style="text-align:right"></div>
       </div>
-      <details class="cmore"${num(c.adv)?' open':''}><summary>전투 시작 게이지${num(c.adv)?` <b style="color:var(--text)">+${num(c.adv)}%</b>`:''}</summary>
-        <label class="f">기타 게이지 증가 % <input type="number" data-k="adv" min="0" max="100" step="1" value="${c.adv||0}"></label>
-        <div class="note">아하 추가 능력 3·장신구 외 다른 효과</div></details>
+      <details class="cmore"${num(c.bpct)?' open':''}><summary>추가 설정</summary>
+        <label class="f">개인 속도 버프 % <input type="number" data-k="bpct" step="0.1" value="${num(c.bpct)||0}"></label></details>
       <div data-out="th"></div>`;
     }
     d.innerHTML=inner;
@@ -1021,7 +1025,7 @@ function renderChars(){
       update();});
     d.querySelectorAll('input[data-k]').forEach(inp=>{
       inp.addEventListener('input',()=>{
-        if(inp.dataset.k==='bpct'){c.bpct=num(inp.value)-autoPct(c);}
+        if(inp.dataset.k==='bpct'){c.bpct=num(inp.value);}
         else c[inp.dataset.k]=inp.type==='checkbox'?inp.checked:inp.value;
         update();});
     });
@@ -1039,11 +1043,9 @@ function update(){
     const s=finalSpd(c), set=num(c.spd);
     const warnBase=baseSpd(c);
     el.querySelector('[data-out=buffed]').textContent=f1(set+withBuff(true,()=>buffAmt(c)));
-    {const bb=el.querySelector('.buffbox');bb.style.display=state.buffOn?'':'none';}
-    const pf=el.querySelector('[data-k=bpct]');if(document.activeElement!==pf)pf.value=f1(totalPct(c));
+    {const bb=el.querySelector('.buffbox');bb.style.display=Math.abs(totalPct(c))>1e-9?'':'none';}
     const pp=presetPct(), tpv=num((state.teamBuff||{}).pct);
-    const parts=[];PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))parts.push(b.name);});
-    if(tpv)parts.push('기타 +'+tpv);if(num(c.bpct))parts.push('개인 '+(num(c.bpct)>0?'+':'')+f1(num(c.bpct)));
+    const parts=buffNames();if(num(c.bpct))parts.push('개인 '+(num(c.bpct)>0?'+':'')+f1(num(c.bpct))+'%');
     el.querySelector('[data-out=pctnote]').textContent=parts.length?parts.join(' · '):'';
     el.querySelector('[data-out=av]').textContent=s>0?f2(10000/s):'-';
     const th=el.querySelector('[data-out=th]');
@@ -1093,7 +1095,7 @@ function update(){
     const exTxt=Object.entries(exBy).map(([k,v])=>`<span style="white-space:nowrap">${k} <b style="color:var(--text)">${v}회</b></span>`).join(' · ');
     let pc=0;const perCyc=Array.from({length:n},(_,k)=>{const c=ahaEv.filter(e=>e.t<=totalAV(k+1)+EPS).length;const r=c-pc;pc=c;return `<span style="white-space:nowrap">${k}사이클 <b style="color:var(--text)">${r}회</b></span>`;}).join(' · ');
     st.innerHTML=`
-      <div class="stat"><div class="k">아하 타임 속도${state.buffOn?' (버프 후)':''}</div><div class="v" style="color:var(--accent)">${f1(a.spd)}</div><div class="d">AV ${f2(first)}${state.buffOn?` · 버프 전 ${f1(withBuff(false,()=>ahaInfo().spd))}`:''}${(()=>{const ac=active();return ac.some(c=>c.key==='waven')&&ac.length===2&&ac.some(isAeon)?'<br>+ 웨이브 승격: [환락만상] 중 동료 공격 후 +25 · 모든 아군 속도 +15% (순서 계산에 반영)':''})()}</div></div>
+      <div class="stat"><div class="k">아하 타임 속도${anyBuff()?' (버프 후)':''}</div><div class="v" style="color:var(--accent)">${f1(a.spd)}</div><div class="d">AV ${f2(first)}${anyBuff()?` · 버프 전 ${f1(withBuff(false,()=>ahaInfo().spd))}`:''}${(()=>{const ac=active();return ac.some(c=>c.key==='waven')&&ac.length===2&&ac.some(isAeon)?'<br>+ 웨이브 승격: [환락만상] 중 동료 공격 후 +25 · 모든 아군 속도 +15% (순서 계산에 반영)':''})()}</div></div>
       <div class="stat"><div class="k">${n}사이클(${T} AV) 동안 아하 타임</div><div class="v">${cT}회</div><div class="d" style="margin-top:4px">${perCyc}</div>${ex?`<div class="d" style="margin-top:4px">기본 턴 <b style="color:var(--text)">${inT.length-ex}회</b> · ${exTxt}</div>`:''}</div>
       <div class="stat"><div class="k">다음 횟수까지</div><div class="v">${isFinite(nd)?ceil1(gap).toFixed(1):'-'}</div><div class="d">아하 타임 속도가 이만큼 더 필요${isFinite(nd)&&a.coefs[0]&&a.pool[0]?` · 1위 환락 캐릭터 기준 +${ceil1(gap/a.coefs[0]).toFixed(1)}`:''}</div></div>`;
     document.getElementById('ahaFormula').textContent='아하 타임 속도 = '+a.parts.join(' + ')+' = '+f2(a.spd);
@@ -1202,10 +1204,7 @@ function bindCoef(){
   ow.onchange=()=>{state.owned.has=ow.checked;update();};
   os.oninput=()=>{state.owned.sig=parseInt(os.value);osw.querySelector('.sigval').textContent=sigLabel(state.owned.sig);update();};
   if(!state.teamBuff)state.teamBuff={pct:0,flat:0};
-  const bo=document.getElementById('buffOn'),tp=document.getElementById('tPct');
-  bo.checked=!!state.buffOn;tp.value=state.teamBuff.pct;
-  bo.onchange=()=>{state.buffOn=bo.checked;update();};
-  tp.oninput=()=>{state.teamBuff.pct=tp.value;update();};
+
   if(!state.mode)state.mode='moc';
   const mr=document.getElementById('modeRow');
   mr.innerHTML='<span class="note" style="color:var(--text)">콘텐츠</span>'+Object.entries(MODES).map(([k,m])=>`<button class="btn mode${state.mode===k?' primary':''}" data-mode="${k}">${m.name} <span class="note" style="color:inherit;opacity:.8">(0사이클 ${m.first} AV)</span></button>`).join('');
@@ -1213,7 +1212,7 @@ function bindCoef(){
   const cy=document.getElementById('cycles');cy.value=state.cycles;cy.oninput=()=>{state.cycles=cy.value;update();};
   const bc=document.getElementById('bpCycles');bc.value=state.bpCycles;bc.oninput=()=>{state.bpCycles=bc.value;update();};
 }
-document.getElementById('reset').onclick=()=>{state={chars:defaultChars(),coef:{...DEFAULT_COEF},cycles:3,bpCycles:3,owned:{has:false,sig:0},mode:'moc',buffOn:false,teamBuff:{pct:0},presetBuffs:{yg:false,gx:false}};state.fx=null;state.plan={};PICK=null;bindCoef();renderChars();};
+document.getElementById('reset').onclick=()=>{state={chars:defaultChars(),coef:{...DEFAULT_COEF},cycles:3,bpCycles:3,owned:{has:false,sig:0},mode:'moc',buffOn:true,teamBuff:{pct:0},presetBuffs:{gx:false}};state.fx=null;state.plan={};PICK=null;bindCoef();renderChars();};
 
 // ===== 익명 사용 통계 수집 (Supabase) — GitHub Pages에서만 동작 =====
 const COLLECT={url:'https://nrxpnhwbpculidkzhjcw.supabase.co',key:'sb_publishable_X0RvjkuOwhaxJFXBRkJk8A_z3nSSVyV',table:'calc_logs'}; // url: https://xxxx.supabase.co · key: publishable(anon) 키
@@ -1404,8 +1403,7 @@ window.addEventListener('hashchange',()=>{if(location.hash==='#rank')showView('r
 function afterUpdate(){
   try{
     const sb=document.getElementById('sumBuff');
-    if(sb){const on=!!state.buffOn,ps=[];if(on){PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))ps.push(b.name);});const tp=num((state.teamBuff||{}).pct);if(tp)ps.push('기타 +'+tp+'%');}
-      sb.innerHTML=on?`<span class="pill p-ok">켜짐</span> ${ps.join(' · ')}`:'꺼짐';}
+    if(sb){const ps=buffNames();sb.textContent=ps.length?ps.join(' · '):'없음';}
     const sr=document.getElementById('sumRelic'),rb=document.getElementById('fxRelic');
     if(sr&&rb){const cnt={};const add=k=>cnt[k]=(cnt[k]||0)+1;
       rb.querySelectorAll('select[data-rset]').forEach(x=>{if(x.value==='eagle')add('매 4세트');});
