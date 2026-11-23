@@ -367,12 +367,14 @@ const sigBonus=c=>isAeon(c)?(SIG_SPD[parseInt(c.sig)||0]||0):0;
 function baseSpd(c){return num(c.base)+sigBonus(c);}
 const PRESET_BUFFS=[
   {key:'gx',name:'곽향 1돌',desc:'모든 아군 속도 +12% (곽향이 들어갈 빈 칸 필요)',pct:12,needSlot:true},
+  {key:'hy',name:'히아킨 2돌',desc:'히아킨 첫 행동 후부터 모든 아군 속도 +30% (히아킨이 들어갈 빈 칸 필요)',pct:30,needSlot:true,dyn:true},
 ];
 const ygInParty=()=>active().some(c=>c.key==='yaoguang');
-function pbBlocked(b){if(b.need&&!active().some(c=>c.key===b.need))return '— 효광이 파티에 없어서 적용 안 됨';if(b.needSlot&&active().length>=4)return '— 환락 캐릭터 4명으로 파티가 꽉 차서 곽향이 들어갈 자리가 없어 적용 안 됨';return '';}
+function pbBlocked(b){if(b.need&&!active().some(c=>c.key===b.need))return '— 효광이 파티에 없어서 적용 안 됨';if(b.needSlot){const pb=state.presetBuffs||{},sup=PRESET_BUFFS.filter(x=>x.needSlot&&pb[x.key]);const idx=sup.indexOf(b);const free=4-active().length;if(free<=0||(idx>=0&&idx>=free))return `— 환락 캐릭터로 칸이 차서 ${b.name.replace(/ \d돌$/,'')}이(가) 들어갈 자리가 없어 적용 안 됨`;}return '';}
 const ygE2=()=>ygInParty()&&eidOf(fxState(),'yaoguang')>=2; // 효광 2돌: 아군 전체 속도 +12% (성혼으로 자동)
-function presetPct(){const pb=state.presetBuffs||{};return PRESET_BUFFS.reduce((t,b)=>t+((pb[b.key]&&!pbBlocked(b))?b.pct:0),0)+(ygE2()?12:0);}
-function buffNames(fixedOnly){const a=[];if(ygE2())a.push('효광 2돌 +12%');PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))a.push(b.name+' +'+b.pct+'%');});if(!fixedOnly)rules().forEach(r=>{if(num(r.v))a.push(rlName(r));});return a;}
+function presetPct(){const pb=state.presetBuffs||{};return PRESET_BUFFS.reduce((t,b)=>t+((pb[b.key]&&!pbBlocked(b)&&!b.dyn)?b.pct:0),0)+(ygE2()?12:0);}
+const hyOn=()=>{const b=PRESET_BUFFS.find(x=>x.key==='hy');return !!(state.presetBuffs&&state.presetBuffs.hy&&!pbBlocked(b));};
+function buffNames(fixedOnly){const a=[];if(ygE2())a.push('효광 2돌 +12%');PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))a.push(b.name+' +'+b.pct+'%'+(b.dyn?' (히아킨 행동 후)':''));});if(!fixedOnly)rules().forEach(r=>{if(num(r.v))a.push(rlName(r));});return a;}
 // v124: 유저 지정 속도 효과 목록 (콘텐츠별)  rule = {t:'all'|'fast'|'slow'|'slot', n, slot, v, u:'%'|'+'}
 const RL_PRESET={bal1:[{t:'fast',n:1,v:-20,u:'%'},{t:'slow',n:1,v:15,u:'%'}],bal2:[{t:'fast',n:2,v:-20,u:'%'},{t:'slow',n:1,v:15,u:'%'}]};
 function rules(){if(!state.rules)state.rules={moc:[],aa:[]};const m=state.mode||'moc';if(!state.rules[m])state.rules[m]=[];return state.rules[m];}
@@ -637,7 +639,8 @@ function simAll(T,ov){
       attackBy(s,t);
       if(swState&&swUses<=0){swState=false;hid=eidOf(fx,'silverwolf999')>=1?hid*0.2:0;mark(t,'은랑 [무적 플레이어] 종료','swEnd');}
     }
-    allyAct(s,t);if(!info.extra)tickR(s,t);evRec.post=snap(); // 보너스 턴에는 지속 시간 감소 없음 // 보너스 턴에는 지속 시간 감소 없음
+    allyAct(s,t);if(!info.extra)tickR(s,t);
+    evRec.post=snap(); // 보너스 턴에는 지속 시간 감소 없음 // 보너스 턴에는 지속 시간 감소 없음
     runFox(t);
     return evRec;
   }
@@ -736,8 +739,10 @@ function simAll(T,ov){
   if(aeonS&&aha)queue.push({aha:true,src:'에이언즈 아하 비술',fixed:20});
   tryUlts(0);runQueue(0);tryUlts(0);runQueue(0);
   let guard=0;
+  let hyT=hyOn()&&num(state.hySpd)>0?10000/num(state.hySpd):Infinity; // 히아킨 2돌: 히아킨 첫 행동 시점 (속도로 계산)
   while(guard++<8000){
     let best=null;st.forEach(s=>{if(s.next<=T+EPS&&(!best||s.next<best.next-1e-9))best=s;});
+    if(hyT<=T+EPS&&(!best||hyT<=best.next+1e-9)){const th=hyT;hyT=Infinity;chars.forEach(c=>setPct(c,'hy',30,th));mark(th,'히아킨 2돌: 히아킨 행동 → 모든 아군 속도 +30%','hyE2');continue;}
     if(!best)break;
     const t=best.next;best.next=t+best.iv;
     if(best===aha){aha.ev.push({t,seq:SEQ++});ahaAct(t,{});}
@@ -1091,10 +1096,12 @@ function update(){
   if(!state.presetBuffs)state.presetBuffs={yg:false,gx:false};
   const pbBox=document.getElementById('presetBuffs');
   if(!pbBox.dataset.built){
-    pbBox.innerHTML=PRESET_BUFFS.map(b=>`<label class="chk"><input type="checkbox" data-pb="${b.key}"> <b>${b.name}</b>&nbsp;<span class="note">${b.desc}</span> <span class="note" data-pbn="${b.key}"></span></label>`).join('');
+    pbBox.innerHTML=PRESET_BUFFS.map(b=>`<label class="chk"><input type="checkbox" data-pb="${b.key}"> <b>${b.name}</b>&nbsp;<span class="note">${b.desc}</span> <span class="note" data-pbn="${b.key}"></span></label>`+(b.key==='hy'?`<label class="f" id="hyRow" style="margin:0 0 6px 24px">히아킨 속도 <input type="number" id="hySpd" step="0.1" style="width:80px"></label>`:'')).join('');
+    {const hs=document.getElementById('hySpd');hs.oninput=()=>{state.hySpd=hs.value;update();};}
     pbBox.querySelectorAll('input').forEach(i=>i.onchange=()=>{state.presetBuffs[i.dataset.pb]=i.checked;update();});
     pbBox.dataset.built=1;
   }
+  {const hr=document.getElementById('hyRow'),hs=document.getElementById('hySpd');if(hr){hr.style.display=state.presetBuffs&&state.presetBuffs.hy?'':'none';if(document.activeElement!==hs)hs.value=state.hySpd||'';}}
   PRESET_BUFFS.forEach(b=>{
     const i=pbBox.querySelector(`[data-pb=${b.key}]`);i.checked=!!state.presetBuffs[b.key];
     pbBox.querySelector(`[data-pbn=${b.key}]`).textContent=i.checked?pbBlocked(b):'';
