@@ -728,7 +728,7 @@ function simAll(T,ov){
   if(ygS){eGain(ygS,30);if(lcOf(fx,'yaoguang'))eGain(ygS,15,true);}
   if(aeonS&&aha){if(eidOf(fx,'aeon_aha')>=1)wp+=5;if(fx.wpHeal)wp+=1;}
   laughGain(nEl,0); // 공통: 전투 시작 시 환락 캐릭터 1명당 웃음 포인트 +1
-  if(swS)laughGain(3,0);
+  if(swS&&entryS===swS)laughGain(3,0); // 은랑 비술 [기기괴괴콩]: 진입 캐릭터일 때만 웨이브 시작 보급상자 → 웃음 포인트 +3
   if(evS&&entryS===evS)rGain(evS,20,0); // 에바네시아 비술(공격형): 진입 캐릭터일 때만 [보상을] 20
   if(wavenS&&entryS===wavenS){rGain(wavenS,20,0);zealGain(2,0);} // 웨이브 비술(공격형): 진입 캐릭터일 때만 [보상을] 20 · [열의] 2
   if(pearlS&&fx.pearlTech!==false)rGain(pearlS,20,0); // 펄 비술(서포트): [보상을] 20
@@ -784,9 +784,9 @@ function renderSettings(marks,T){
   const fx=fxState(), act=active(), box=document.getElementById('setBox');
   if(!act.length){box.innerHTML='<div class="note">캐릭터를 넣으면 설정이 나와요.</div>';box.dataset.h='';return;}
   const tOpts=(self,val,none)=>`<option value="-1">${none}</option>`+act.filter(c=>c.key!==self).map(c=>`<option value="${c.i}"${num(val)===c.i?' selected':''}>${c.name}</option>`).join('');
-  const es=entrySlot(fx),atk=act.filter(c=>c.key==='waven'||c.key==='evanescia');
+  const es=entrySlot(fx),atk=act.filter(c=>c.key==='waven'||c.key==='evanescia'||c.key==='silverwolf999');
   let h=`<div class="stat" style="grid-column:1/-1"><label class="f" style="margin:0"><b style="color:var(--text)">전투 진입 캐릭터</b> <select data-fx="entry" style="width:auto">${act.map(c=>`<option value="${c.i}"${c.i===es?' selected':''}>${c.name}</option>`).join('')}</select></label>
-    <div class="note" style="margin-top:4px">필드에서 적을 공격해 전투를 시작하는 캐릭터 · 공격형 비술(웨이브 · 에바네시아)은 진입 캐릭터일 때만 적용${atk.length?` (지금: ${atk.map(c=>c.name+(c.i===es?' 적용':' 미적용')).join(' · ')})`:''}${act.some(c=>c.key==='pearl')?' · 펄 비술 [미학의 저본]도 진입 캐릭터에게':''}</div></div>`;
+    <div class="note" style="margin-top:4px">필드에서 적을 공격해 전투를 시작하는 캐릭터 · 웨이브 · 에바네시아 · 은랑의 비술 효과는 진입 캐릭터일 때만 적용${atk.length?` (지금: ${atk.map(c=>c.name+(c.i===es?' 적용':' 미적용')).join(' · ')})`:''}${act.some(c=>c.key==='pearl')?' · 펄 비술 [미학의 저본]도 진입 캐릭터에게':''}</div></div>`;
   act.forEach(c=>{const k=c.key;if(k==='custom')return;
     const er=(fx.er||{})[k]||{};
     let body='';
