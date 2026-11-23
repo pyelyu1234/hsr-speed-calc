@@ -416,7 +416,7 @@ let CUR={units:[],T:0};
 // ===== 시뮬레이션 엔진 v54: 행동 선택 · SP · 에너지 · 웃음 포인트 · 원력 · 히든 스코어 =====
 const CFG={
   aeon_aha:{short:'아',acts:['skill','basic']},
-  pearl:{short:'펄',acts:['enh'],cost:180,start:90,energy:true},
+  pearl:{short:'펄',acts:['enh','basic'],cost:180,start:90,energy:true},
   waven:{short:'웨',acts:['skill','basic'],energy:true},
   evanescia:{short:'에',acts:['skill','basic'],cost:240,energy:true},
   silverwolf999:{short:'은',acts:['skill','basic']},
@@ -514,6 +514,7 @@ function simAll(T,ov){
   // [미학의 저본]: 전투 시작 = 진입 캐릭터(펄 비술) · 펄 필살기 후 = 필살기 대상 (v126)
   const pEntry=fx.pearlEntry==null?-1:num(fx.pearlEntry);
   let jeobon=!pearlS?null:pEntry===-2?null:pEntry>=0?(chars.find(s=>s!==pearlS&&s.u.slot===pEntry)||null):pTgt;
+  let deepCh=jeobon?2:0; // [심층 학습] 충전: 비술 2 · 펄 필살기 3 · 강화 일반 공격마다 1 소모 (v127)
   const tbTgt=tbS?chars.find(s=>s!==tbS&&s.u.slot===num(fx.tbTgt)):null;
   const wTgt=aeonS?chars.find(s=>s!==aeonS&&s.u.slot===num(fx.wpTarget)):null;
   const pAdv=nEl>=3?30:nEl===2?15:10, pExtra=nEl>=4;
@@ -593,6 +594,7 @@ function simAll(T,ov){
     if(pearlS&&!info.extra){if(s===pearlS)pearlTalentR=0;else if(pearlTalentR<50){pearlTalentR+=5;rGain(pearlS,5,t);}} // 턴 시작 효과: 보너스 턴 제외
     let act=k==='silverwolf999'&&swState?'swenh':chosenAct(k,n), fb=false;
     if(act==='skill'&&(sp<1||(k==='aeon_aha'&&!wTgt))){act='basic';fb=sp<1?'SP 부족':'전투 스킬 대상 없음';}
+    if(k==='pearl'&&act==='enh'&&deepCh<=0){act='basic';fb='[심층 학습] 충전 없음';}
     const evRec={t,seq:SEQ++,act,n,fb,extra:!!info.extra,src:info.src||'',pre:pre0};s.ev.push(evRec);
     CTX=s.u.name+' '+({spx:'전투 스킬 (함정)',swenh:'강화 일반 공격'}[act]||ACT_NAME[act]||'')+(info.extra?' (보너스 턴)':'');
     if(k==='aeon_aha'){
@@ -602,7 +604,7 @@ function simAll(T,ov){
         if(lvl>0&&n>=aeonLcCd){laughGain(10,t);aeonLcCd=n+2;}}
       else spGain(1);
       attackBy(s,t);wpGain(1,t);
-    }else if(k==='pearl'){spGain(1);eGain(s,30);attackBy(s,t);evRec.ph=pearlHold;evRec.pc=pearlCap();}
+    }else if(k==='pearl'){spGain(1);if(act==='enh'){eGain(s,30);deepCh--;evRec.dc=deepCh;if(deepCh<=0)mark(t,'펄 [심층 학습] 충전 소진 → 다음부터 일반 공격 (펄 필살기로 다시 3충전)','pearlDeep');}else eGain(s,20);attackBy(s,t);evRec.ph=pearlHold;evRec.pc=pearlCap();}
     else if(k==='waven'){
       if(act==='skill'){spSpend(1,t);eGain(s,30);laughGain(4,t);wavA3=0;zealGain(4,t);}else{spGain(1);eGain(s,20);}
       if(wUltTurns>0&&!info.extra){wUltTurns--;if(wUltTurns===0){setPct(s,'ult',0,t);mark(t,'어벤츄린 웨이브 필살기 속도 버프 종료','wavenEnd');}}
@@ -662,7 +664,7 @@ function simAll(T,ov){
           adv(pTgt,t,pAdv);
           if(eidOf(fx,'pearl')>=2){const others=chars.filter(o=>o!==pearlS&&o!==pTgt);others.forEach(o=>adv(o,t,pAdv));
             if(others.length)mark(t,`펄 2돌 → ${others.map(o=>o.u.name).join('·')} 행동 게이지 +${pAdv}%`,'pearlE2');}
-          if(pExtra)queue.push({s:pTgt,src:'펄 필살기',pearl:true,mk:marks.filter(m=>m.who==='pearl'&&m.k!=null).pop()});jeobon=pTgt;pearlA3=true;fired=true;}
+          if(pExtra)queue.push({s:pTgt,src:'펄 필살기',pearl:true,mk:marks.filter(m=>m.who==='pearl'&&m.k!=null).pop()});jeobon=pTgt;deepCh=3;pearlA3=true;fired=true;}
         else if(k==='waven'&&s.E>=wCOST-1e-9){s.E-=wCOST;eGain(s,5);laughGain(6,t);zealGain(8,t);wUltTurns=4;setPct(s,'ult',30,t);
           mark(t,'어벤츄린 웨이브 필살기: 속도 +30% (4턴)','waven',{k:s.n});fired=true;}
         else if(k==='yaoguang'&&s.E>=180-1e-9){s.E-=180;eGain(s,5);const man=manTurns>0;if(aeonS&&man)eGain(s,aE2?30:12,true); // [환락만상] 중 필살기 후 에너지 고정 +12 (아하 2돌 +30)
@@ -790,7 +792,7 @@ function renderSettings(marks,T){
     if(k==='pearl'){const pe=fx.pearlEntry==null?-1:num(fx.pearlEntry);
       body+=`<label class="f">필살기 대상 <select data-fx="pearlTgt" style="width:150px">${tOpts(k,fx.pearlTgt,'선택 안 함')}</select></label>
       <label class="f">전투 진입 캐릭터 <select data-fx="pearlEntry" style="width:150px"><option value="-1"${pe===-1?' selected':''}>필살기 대상과 같음</option>${act.filter(c=>c.key!=='pearl').map(c=>`<option value="${c.i}"${pe===c.i?' selected':''}>${c.name}</option>`).join('')}<option value="-2"${pe===-2?' selected':''}>비술 안 씀</option></select></label>
-      <div class="note">비술 [미학의 저본]은 전투에 진입한 캐릭터가 가져가요 → 그 캐릭터의 첫 필살기에 펄 에너지 +90 (추가 능력 3) · 펄 필살기 후엔 필살기 대상이 저본</div>`;}
+      <div class="note">비술 [미학의 저본]은 전투에 진입한 캐릭터가 가져가요 → 그 캐릭터의 첫 필살기에 펄 에너지 +90 (추가 능력 3) · 펄 필살기 후엔 필살기 대상이 저본<br>[심층 학습] 충전: 비술 2 · 펄 필살기 3 · 충전이 있으면 강화 일반 공격(에너지 30, 1 소모), 없으면 일반 공격(에너지 20)</div>`;}
     if(k==='trailblazer')body+=`<label class="f">필살기 대상 <select data-fx="tbTgt" style="width:150px">${tOpts(k,fx.tbTgt,'선택 안 함')}</select></label>`;
     if(k==='evanescia')body+=`<div class="note">에너지 240에서 필살기 (240 소모, 최대 480) · 시작 에너지 240 · [보상] 획득 = 같은 양 에너지 · 누적 에너지 240마다 [여우 선생님]</div>`;
     if(k==='waven')body+=`<label class="f">필살기 에너지 <input type="number" data-fx="wavCost" min="1" step="5" value="${num(fx.wavCost)||130}"></label><div class="note">추가 능력 2 (환락이 웨이브 1명뿐일 때): 동료 공격 후 [보상을] +2 · 웃음 포인트 +1 · 아하 속도 +25 (아하 타임 종료까지)<br>승격 (환락이 웨이브 + 에이언즈 아하 2명이고 [환락만상] 중): 위 효과 적용 + 모든 아군 속도 +15% · 동료 공격 시 추가로 [열의] +1 · 쾌감 포인트 +1 — 계산에 자동 반영</div>`;
