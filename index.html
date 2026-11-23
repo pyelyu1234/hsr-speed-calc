@@ -193,6 +193,15 @@ tr.mine td{background:rgba(197,139,255,.08)}
 .rl .rl-n{width:46px!important}
 .rl .rl-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px}
 .rl .rl-hit{flex-basis:100%;font-size:11.5px;color:var(--muted)}
+/* v136: 지원 캐릭터 설정 줄바꿈 정리 (이름 위, 입력칸 아래 전체 폭) */
+[data-suprow]{margin:2px 0 10px 24px!important;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+[data-suprow] label.f{display:flex;flex-direction:column;align-items:stretch;gap:3px;margin:6px 0 0!important;font-size:12.5px}
+[data-suprow] label.f:first-child{margin-top:0!important}
+[data-suprow] select,[data-suprow] input[type=number]{width:100%!important;text-align:left}
+[data-suprow] label.f .note{font-size:11.5px}
+[data-suprow] label.chk{margin:8px 0 2px}
+@media(min-width:561px){[data-suprow]{max-width:520px}}
+#presetBuffs label.chk>b{white-space:nowrap;flex:none}
 </style>
 </head>
 <body>
@@ -366,13 +375,15 @@ const AEON_BASE=94; // 미착용, 중첩 1~5
 const sigBonus=c=>isAeon(c)?(SIG_SPD[parseInt(c.sig)||0]||0):0;
 function baseSpd(c){return num(c.base)+sigBonus(c);}
 const PRESET_BUFFS=[
-  {key:'gx',name:'곽향 1돌',desc:'모든 아군 속도 +12% (곽향이 들어갈 빈 칸 필요)',pct:12,needSlot:true},
+  {key:'gx',name:'곽향 1돌',desc:'모든 아군 속도 +12% (곽향이 들어갈 빈 칸 필요)',pct:12,needSlot:true,sup:'곽향',base:98},
+  {key:'hy',name:'히아킨 2돌',desc:'히아킨 첫 행동 후부터 모든 아군(히아킨 포함) 속도 +30% (히아킨이 들어갈 빈 칸 필요)',pct:30,needSlot:true,dyn:true,sup:'히아킨',base:110},
 ];
 const ygInParty=()=>active().some(c=>c.key==='yaoguang');
-function pbBlocked(b){if(b.need&&!active().some(c=>c.key===b.need))return '— 효광이 파티에 없어서 적용 안 됨';if(b.needSlot&&active().length>=4)return '— 환락 캐릭터 4명으로 파티가 꽉 차서 곽향이 들어갈 자리가 없어 적용 안 됨';return '';}
+function pbBlocked(b){if(b.need&&!active().some(c=>c.key===b.need))return '— 효광이 파티에 없어서 적용 안 됨';if(b.needSlot){const pb=state.presetBuffs||{},sup=PRESET_BUFFS.filter(x=>x.needSlot&&pb[x.key]);const idx=sup.indexOf(b);const free=4-active().length;if(free<=0||(idx>=0&&idx>=free))return `— 환락 캐릭터로 칸이 차서 ${b.name.replace(/ \d돌$/,'')}이(가) 들어갈 자리가 없어 적용 안 됨`;}return '';}
 const ygE2=()=>ygInParty()&&eidOf(fxState(),'yaoguang')>=2; // 효광 2돌: 아군 전체 속도 +12% (성혼으로 자동)
-function presetPct(){const pb=state.presetBuffs||{};return PRESET_BUFFS.reduce((t,b)=>t+((pb[b.key]&&!pbBlocked(b))?b.pct:0),0)+(ygE2()?12:0);}
-function buffNames(fixedOnly){const a=[];if(ygE2())a.push('효광 2돌 +12%');PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))a.push(b.name+' +'+b.pct+'%');});if(!fixedOnly)rules().forEach(r=>{if(num(r.v))a.push(rlName(r));});return a;}
+function presetPct(){const pb=state.presetBuffs||{};return PRESET_BUFFS.reduce((t,b)=>t+((pb[b.key]&&!pbBlocked(b)&&!b.dyn)?b.pct:0),0)+(ygE2()?12:0);}
+const hyOn=()=>{const b=PRESET_BUFFS.find(x=>x.key==='hy');return !!(state.presetBuffs&&state.presetBuffs.hy&&!pbBlocked(b));};
+function buffNames(fixedOnly){const a=[];if(ygE2())a.push('효광 2돌 +12%');PRESET_BUFFS.forEach(b=>{if(state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b))a.push(b.name+' +'+b.pct+'%'+(b.dyn?' (히아킨 행동 후)':''));});if(!fixedOnly)rules().forEach(r=>{if(num(r.v))a.push(rlName(r));});return a;}
 // v124: 유저 지정 속도 효과 목록 (콘텐츠별)  rule = {t:'all'|'fast'|'slow'|'slot', n, slot, v, u:'%'|'+'}
 const RL_PRESET={bal1:[{t:'fast',n:1,v:-20,u:'%'},{t:'slow',n:1,v:15,u:'%'}],bal2:[{t:'fast',n:2,v:-20,u:'%'},{t:'slow',n:1,v:15,u:'%'}]};
 function rules(){if(!state.rules)state.rules={moc:[],aa:[]};const m=state.mode||'moc';if(!state.rules[m])state.rules[m]=[];return state.rules[m];}
@@ -408,6 +419,9 @@ function buildUnits(ahaSpd,withAha){
     if((fx.vonw||[]).includes(c.i)&&num(c.spd)>=120)sa+=40; // 바커공: 속도 120 이상 전투 시작 게이지 +40%
     return {id:'c'+c.i,slot:c.i,key:c.key,name:c.name,base:baseSpd(c),spd:finalSpd(c),color:COLORS[c.i],startAdv:Math.min(100,Math.max(0,sa)),effects:[]};
   });
+  PRESET_BUFFS.filter(b=>b.sup&&state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b)&&supSpd(b.key)>0).forEach(b=>{ // 히아킨·곽향 (환락 아님: 행동만 표시, 고정 버프는 적용)
+    const orn=(state.supOrn||{})[b.key]||'',sa=orn==='hwan'||(orn==='vonw'&&supSpd(b.key)>=120)?40:0; // 환커공 / 바커공(속도 120 이상): 전투 시작 게이지 +40%
+    units.push({id:'s_'+b.key,key:'sup_'+b.key,name:b.sup,base:b.base,spd:supSpd(b.key)+b.base*presetPct()/100,color:'#9aa3b2',startAdv:sa,effects:[],support:true});});
   const aha={id:'aha',name:'아하 타임',spd:ahaSpd,color:COLORS[4],startAdv:0,effects:[]};
   const marks=[];
   if(hasKey('aeon_aha')&&fx.ahaMode==='manual')parseTimes(fx.ahaUlt).forEach(t=>{marks.push({t,name:'에이언즈 아하 궁극기'});aha.effects.push({t,adv:20,src:'에이언즈 아하 궁극기'});});
@@ -426,11 +440,12 @@ const CFG={
   sparxie:{short:'스',acts:['spx'],cost:160,energy:true},
   yaoguang:{short:'효',acts:['basic','skill'],cost:180,energy:true},
 };
-const ACT_NAME={skill:'전투 스킬',basic:'일반 공격',enh:'강화 일반 공격',spx:'전투 스킬 → 함정 → 강화 일반 공격',swenh:'강화 일반 공격 (무적 플레이어)'};
+const ACT_NAME={turn:'행동',skill:'전투 스킬',basic:'일반 공격',enh:'강화 일반 공격',spx:'전투 스킬 → 함정 → 강화 일반 공격',swenh:'강화 일반 공격 (무적 플레이어)'};
 const ACT_SHORT={skill:'전',basic:'평',enh:'강',spx:'스',swenh:'강'};
 const ROPE=19.4, ORN=5;
 const ULT_ON_ALLY=new Set(['pearl','trailblazer','yaoguang']); // 아군 대상 필살기
-function cfgOf(k){return CFG[k]||{short:'?',acts:['skill','basic']};}
+function cfgOf(k){if(k==='sup_gx')return {short:'곽',acts:['skill','basic']};if(/^sup_/.test(k))return {short:'히',acts:['turn']};return CFG[k]||{short:'?',acts:['skill','basic']};}
+const supSpd=k=>num(((state.supSpd||{})[k]))||(k==='hy'?num(state.hySpd):0);
 function eidOf(fx,k){return parseInt((fx.eid||{})[k])||0;}
 function lcOf(fx,k){return !!(fx.lc||{})[k];}
 function lcS(fx,k){return Math.min(5,Math.max(1,parseInt((fx.lcS||{})[k])||1));}
@@ -439,7 +454,7 @@ const swLcLabel=v=>v?`${v}중첩 (웃음 +${[20,25,30,35,40][v-1]})`:'미착용'
 function erOf(fx,k){const e=(fx.er||{})[k]||{};const sl=(active().find(a=>a.key===k)||{}).i;const vw=sl!=null&&(fx.vonw||[]).includes(sl);return 1+(e.rope?ROPE:0)/100+((e.orn||vw)?ORN:0)/100+(k==='yaoguang'&&lcOf(fx,k)?0.12:0)+(k==='evanescia'&&lcOf(fx,k)?0.208:0);}
 const ORDER={pearl:104,yaoguang:116,trailblazer:120,sparxie:144,evanescia:146,waven:156,silverwolf999:999,aeon_aha:99999};
 function planOf(k){if(!state.plan)state.plan={};if(!state.plan[k])state.plan[k]={a:{},hold:[]};const p=state.plan[k];if(!p.a)p.a={};if(!p.hold)p.hold=[];if(!p.ud)p.ud={};return p;}
-function defaultAct(k,n){if(k==='yaoguang')return n%3===2?'skill':'basic';return cfgOf(k).acts[0];}
+function defaultAct(k,n){if(k==='sup_gx')return state.gxAct==='basic'?'basic':'skill';if(k==='yaoguang')return n%3===2?'skill':'basic';return cfgOf(k).acts[0];}
 function chosenAct(k,n){const p=(state.plan||{})[k];const v=p&&p.a&&p.a[n];return (v&&cfgOf(k).acts.includes(v))?v:defaultAct(k,n);}
 function swCap(man,e2){return man?(e2?999:360):300;}
 
@@ -450,7 +465,20 @@ function simAll(T,ov){
     return {u,key:u.key,spd0,spd,iv,next:spd>0?iv*(1-u.startAdv/100):Infinity,ev:[],pct:{},n:0,E:0};});
   const byId=Object.fromEntries(st.map(s=>[s.u.id,s]));
   const aha=byId['aha'];
-  const chars=st.filter(s=>s!==aha);
+  const chars=st.filter(s=>s!==aha&&!s.u.support), sups=st.filter(s=>s.u.support);
+  // 곽향 (v134): 에너지 140 · 시작 70 + 추가 능력 1 30 · 전투 스킬 30 / 일반 공격 20 · 필살기 +5 → 다른 아군 에너지 최대치의 20%
+  // 특성 [양명]: 전투 스킬·필살기 후 3턴(1돌 +1) · 시작 시 2턴 · 곽향 턴 시작마다 -1 · 보유 중 아군 턴 시작/필살기 때 치유 → 추가 능력 3 에너지 +1 (6회, 다시 얻으면 갱신)
+  const gxS=sups.find(x=>x.u.key==='sup_gx')||null;
+  const gxER=1+((state.gxRope)?0.194:0)+((((state.supOrn||{}).gx)==='vonw'||((state.supOrn||{}).gx)==='er5')?0.05:0);
+  let yangT=0,yangN=0,gxHeal=0;if(gxS){gxS.E=100;yangT=2;yangN=6;}
+  const supSet=k=>((state.supSet||{})[k])||'';
+  function wgOn(sx,t){if(!sx||sx.wg)return;sx.wg=true;setPct(sx,'wg',6,t);mark(t,`${sx.u.name} 태양과 번개의 여전사 4세트: 치유 → [단비] 속도 +6%`,'wg');} // 매 턴 치유하므로 계속 유지로 계산
+  function yangTrig(t){if(!gxS||yangT<=0||yangN<=0)return;yangN--;gxHeal++;gxS.E+=1*gxER;if(supSet('gx')==='wg')wgOn(gxS,t);gxUlt(t);}
+  function yangGet(){yangT=4;yangN=6;} // 3턴 + 1돌 1턴
+  function gxUlt(t){if(!gxS||gxS.E<140-1e-9)return;gxS.E-=140;const got=[];
+    chars.forEach(c=>{const mx=COST[c.key];if(!mx)return;const b=c.E;eGain(c,mx*0.2);got.push(`${cfgOf(c.key).short} +${f1(c.E-b)}`);});
+    mark(t,'곽향 필살기: 다른 아군 에너지 최대치의 20%'+(got.length?' ('+got.join(' · ')+')':''),'gxUlt');
+    yangTrig(t);gxS.E+=5*gxER;yangGet();if(supSet('gx')==='eagle'){adv(gxS,t,25);mark(t,'곽향 매 4세트: 필살기 후 행동 게이지 +25%','eagle');}gxUlt(t);}
   const ck=k=>chars.find(s=>s.key===k);
   const marks=[];let SEQ=0;
   const aeonS=ck('aeon_aha'),pearlS=ck('pearl'),wavenS=ck('waven'),ygS=ck('yaoguang'),spxS=ck('sparxie'),tbS=ck('trailblazer'),swS=ck('silverwolf999'),evS=ck('evanescia');
@@ -590,7 +618,7 @@ function simAll(T,ov){
   }
   // ---- 캐릭터 행동 ----
   function charAct(s,t,info){
-    const k=s.key, n=s.n++;CTX=s.u.name+' 턴 시작';const pre0=info.pre||snap();
+    const k=s.key, n=s.n++;CTX=s.u.name+' 턴 시작';if(!info.extra)yangTrig(t);const pre0=info.pre||snap();
     if(aeonS&&marked&&wTgt===s&&!info.extra)wpGain(1,t); // 「환락」의 사도: 턴 시작 시 원력 +1 (보너스 턴 제외)
     if(s===aeonS&&manTurns>0&&!info.extra)setMan(manTurns-1,t); // 보너스 턴은 턴 수를 소모하지 않음
     if(pearlS&&!info.extra){if(s===pearlS)pearlTalentR=0;else if(pearlTalentR<50){pearlTalentR+=5;rGain(pearlS,5,t);}} // 턴 시작 효과: 보너스 턴 제외
@@ -637,7 +665,8 @@ function simAll(T,ov){
       attackBy(s,t);
       if(swState&&swUses<=0){swState=false;hid=eidOf(fx,'silverwolf999')>=1?hid*0.2:0;mark(t,'은랑 [무적 플레이어] 종료','swEnd');}
     }
-    allyAct(s,t);if(!info.extra)tickR(s,t);evRec.post=snap(); // 보너스 턴에는 지속 시간 감소 없음 // 보너스 턴에는 지속 시간 감소 없음
+    allyAct(s,t);if(!info.extra)tickR(s,t);
+    evRec.post=snap(); // 보너스 턴에는 지속 시간 감소 없음 // 보너스 턴에는 지속 시간 감소 없음
     runFox(t);
     return evRec;
   }
@@ -690,7 +719,7 @@ function simAll(T,ov){
           adv(s,t,100);fired=true;}
         const um=marks.slice(ml).find(m=>m.who===k&&m.k!=null); // 이번에 이 캐릭터가 쓴 필살기
         if(um&&(fx.eagle||[]).includes(s.u.slot)){adv(s,t,25);mark(t,`매 4세트 (${s.u.name}): 필살기 후 행동 게이지 +25%`,'eagle');}
-        if(um){um.ui=ultCount[k]||0;ultCount[k]=um.ui+1;allyAct(s,t);um.pre=sb;um.post=snap();}
+        if(um){um.ui=ultCount[k]||0;ultCount[k]=um.ui+1;allyAct(s,t);yangTrig(t);um.pre=sb;um.post=snap();}
         if(um&&pearlS&&jeobon&&s===jeobon&&pearlA3){pearlA3=false;eGain(pearlS,90,true);mark(t,`펄 추가 능력 3: 저본 ${s.u.name} 필살기 → 펄 에너지 +90`,'pearlA3');}
       }
       if(!fired)break;
@@ -736,11 +765,19 @@ function simAll(T,ov){
   if(aeonS&&aha)queue.push({aha:true,src:'에이언즈 아하 비술',fixed:20});
   tryUlts(0);runQueue(0);tryUlts(0);runQueue(0);
   let guard=0;
+  let hyDone=false;
   while(guard++<8000){
     let best=null;st.forEach(s=>{if(s.next<=T+EPS&&(!best||s.next<best.next-1e-9))best=s;});
     if(!best)break;
     const t=best.next;best.next=t+best.iv;
     if(best===aha){aha.ev.push({t,seq:SEQ++});ahaAct(t,{});}
+    else if(best.u.support){const ev={t,seq:SEQ++,act:'turn',n:best.n++,extra:false,pre:snap()};best.ev.push(ev); // 지원 캐릭터: 행동만
+      yangTrig(t);if(best===gxS&&yangT>0)yangT--; // 턴 시작: 치유 발동 → 곽향 턴이면 [양명] 1턴 감소
+      if(best===gxS){let a=chosenAct('sup_gx',ev.n);if(a==='skill'&&sp<1){a='basic';ev.fb='SP 부족';}ev.act=a;
+        if(a==='skill'){spSpend(1,t);yangGet();}else spGain(1);gxS.E+=(a==='skill'?30:20)*gxER;gxUlt(t);ev.gxE=gxS.E;}
+      if(best.u.key==='sup_hy'&&supSet('hy')==='wg')wgOn(best,t);
+      if(best.u.key==='sup_hy'&&hyOn()&&!hyDone){hyDone=true;chars.concat(sups).forEach(c=>setPct(c,'hy',30,t));mark(t,'히아킨 2돌: 히아킨 행동 → 모든 아군(히아킨 포함) 속도 +30%','hyE2');}
+      ev.post=snap();}
     else charAct(best,t,{});
     tryUlts(t);runFox(t);runQueue(t);
   }
@@ -1091,10 +1128,18 @@ function update(){
   if(!state.presetBuffs)state.presetBuffs={yg:false,gx:false};
   const pbBox=document.getElementById('presetBuffs');
   if(!pbBox.dataset.built){
-    pbBox.innerHTML=PRESET_BUFFS.map(b=>`<label class="chk"><input type="checkbox" data-pb="${b.key}"> <b>${b.name}</b>&nbsp;<span class="note">${b.desc}</span> <span class="note" data-pbn="${b.key}"></span></label>`).join('');
-    pbBox.querySelectorAll('input').forEach(i=>i.onchange=()=>{state.presetBuffs[i.dataset.pb]=i.checked;update();});
+    pbBox.innerHTML=PRESET_BUFFS.map(b=>`<label class="chk"><input type="checkbox" data-pb="${b.key}"> <b>${b.name}</b>&nbsp;<span class="note">${b.desc}</span> <span class="note" data-pbn="${b.key}"></span></label>`+(b.sup?`<div data-suprow="${b.key}" style="margin:0 0 6px 24px"><label class="f" style="margin:0">${b.sup} 속도 <input type="number" data-supspd="${b.key}" step="0.1" style="width:80px"> <span class="note">캐릭터 화면 속도를 넣으면 행동 순서에 나와요</span></label><label class="f" style="margin:4px 0 0">${b.sup} 유물 4세트 <select data-supset="${b.key}" style="width:auto"><option value="">없음 · 기타</option><option value="wg">태양과 번개의 여전사 (치유 후 속도 +6%)</option>${b.key==='gx'?'<option value="eagle">매 (필살기 후 행동 게이지 +25%)</option>':''}</select></label><label class="f" style="margin:4px 0 0">${b.sup} 장신구 <select data-suporn="${b.key}" style="width:auto"><option value="">없음 · 기타</option><option value="vonw">바커공 (에충 +5% · 120↑ 시작 +40%)</option><option value="hwan">환커공 (시작 +40%)</option><option value="er5">에충 장신구 (+5%)</option></select></label>${b.key==='gx'?`<label class="f" style="margin:4px 0 0">곽향 행동 <select id="gxAct" style="width:auto"><option value="skill">전투 스킬 (에너지 30, SP -1)</option><option value="basic">일반 공격 (에너지 20, SP +1)</option></select></label><label class="chk"><input type="checkbox" id="gxRope"> 에너지 회복 효율 매듭 (+19.4%)</label><div class="note">곽향 필살기(에너지 140): 다른 아군 에너지 최대치의 20% 회복 · 전투 시작 에너지 100 (절반 70 + 추가 능력 30) · [양명] 중 아군 턴 시작·필살기마다 치유 → 에너지 +1 (6회)</div>`:''}</div>`:'')).join('');
+    pbBox.querySelectorAll('[data-supspd]').forEach(i=>i.oninput=()=>{state.supSpd=state.supSpd||{};state.supSpd[i.dataset.supspd]=i.value;update();});
+    pbBox.querySelectorAll('[data-supset]').forEach(sl=>sl.onchange=()=>{state.supSet=state.supSet||{};state.supSet[sl.dataset.supset]=sl.value;update();});
+    pbBox.querySelectorAll('[data-suporn]').forEach(sl=>sl.onchange=()=>{state.supOrn=state.supOrn||{};state.supOrn[sl.dataset.suporn]=sl.value;update();});
+    {const ga=document.getElementById('gxAct'),gr=document.getElementById('gxRope');ga.onchange=()=>{state.gxAct=ga.value;update();};gr.onchange=()=>{state.gxRope=gr.checked;update();};}
+    pbBox.querySelectorAll('input[data-pb]').forEach(i=>i.onchange=()=>{state.presetBuffs[i.dataset.pb]=i.checked;update();});
     pbBox.dataset.built=1;
   }
+  {const ga=document.getElementById('gxAct'),gr=document.getElementById('gxRope');if(ga){ga.value=state.gxAct||'skill';gr.checked=!!state.gxRope;}}
+  pbBox.querySelectorAll('[data-supset]').forEach(sl=>{sl.value=(state.supSet||{})[sl.dataset.supset]||'';});
+  pbBox.querySelectorAll('[data-suporn]').forEach(sl=>{sl.value=(state.supOrn||{})[sl.dataset.suporn]||'';});
+  pbBox.querySelectorAll('[data-suprow]').forEach(r=>{const k=r.dataset.suprow,i=r.querySelector('input');r.style.display=state.presetBuffs&&state.presetBuffs[k]?'':'none';if(document.activeElement!==i)i.value=supSpd(k)||'';});
   PRESET_BUFFS.forEach(b=>{
     const i=pbBox.querySelector(`[data-pb=${b.key}]`);i.checked=!!state.presetBuffs[b.key];
     pbBox.querySelector(`[data-pbn=${b.key}]`).textContent=i.checked?pbBlocked(b):'';

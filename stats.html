@@ -64,6 +64,10 @@ tr.det td{background:#120f22;font-size:12px;color:var(--muted)}
 .mtab{background:none;border:none;color:var(--muted);font-size:15px;font-weight:700;padding:11px 8px;border-radius:10px;cursor:pointer}
 .mtab.on{background:var(--accent);color:var(--bg)}
 .mcnt{font-size:12px;font-weight:600;opacity:.8}
+.btn.danger{border-color:var(--bad);color:var(--bad)}
+.btn.danger:hover{background:rgba(255,138,138,.12)}
+.delrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#000d;border:1px solid var(--line);padding:8px 14px;border-radius:10px;font-size:13px;z-index:20}
 </style>
 </head>
 <body>
@@ -147,6 +151,12 @@ tr.det td{background:#120f22;font-size:12px;color:var(--muted)}
     <div class="card">
       <h2>장신구 · 유물 <span class="note">(캐릭터별 선택 횟수)</span></h2>
       <div class="tscroll"><table id="relics"></table></div>
+    </div>
+
+    <div class="card">
+      <h2>의심 기록 <span class="note">(오염 후보 · 전체 콘텐츠)</span></h2>
+      <p class="note" style="margin:0 0 8px">속도가 비었거나 50 미만 · 400 초과, 파티가 비었거나 계산 결과가 없는 기록이에요. 확인하고 지울 수 있어요.</p>
+      <div id="sus"></div>
     </div>
 
     <div class="card">
@@ -291,6 +301,7 @@ function render(){
   $('relics').innerHTML=rt.length?'<tr><th>캐릭터</th><th class="num">기록</th><th class="num">환커공</th><th class="num">바커공</th><th class="num">매 4세트</th><th class="num">에충 설정</th></tr>'+rt.map(([nm,o])=>`<tr><td>${esc(nm)}</td><td class="num">${o.n}</td><td class="num">${pc(o.hwan,o.n)}</td><td class="num">${pc(o.vonw,o.n)}</td><td class="num">${pc(o.eagle,o.n)}</td><td class="num">${pc(o.er,o.n)}</td></tr>`).join(''):'<tr><td class="note">데이터 없음</td></tr>';
 
   renderRecent();
+  renderSus();
 }
 function renderChar(){
   const nm=$('charSel').value,rows=filtered();
@@ -320,9 +331,37 @@ function renderRecent(){
     const acts=Object.entries(res.actions||{}).map(([k,v])=>`${esc(k)} ${v}`).join(', ')||'-';
     const d=document.createElement('tr');d.className='det';
     d.innerHTML=`<td colspan="4">사이클 ${esc(s.cycles||'-')} · 총 ${esc(res.T||'-')} AV · 아하 속도 ${esc(res.ahaSpd||'-')}<br>행동: ${acts}<br>필살기: ${ults}<br>은랑 궁 ${esc(s.swUlt||'-')} · 웨이븐 궁 ${esc(s.wavCost||'-')} · 소원 대상 ${esc(s.wpTarget||'-')} · 펄 대상 ${esc(s.pearlTgt||'-')} · 직접 조정 ${esc(s.planEdits||0)}개<br><span style="opacity:.7">사용자 ${esc((r.session_id||'').slice(0,6))}…</span></td>`;
+    d.querySelector('td').insertAdjacentHTML('beforeend',`<div class="delrow"><button class="btn danger" data-del1>이 기록 삭제</button>${r.session_id?`<button class="btn danger" data-delses>이 브라우저 기록 모두 삭제 (${RAW.filter(x=>x.session_id===r.session_id).length}건)</button>`:''}</div>`);
+    d.querySelector('[data-del1]').onclick=e=>{e.stopPropagation();delWhere('id=eq.'+r.id,'이 기록 1건을 삭제해요.');};
+    const ds=d.querySelector('[data-delses]');if(ds)ds.onclick=e=>{e.stopPropagation();delWhere('session_id=eq.'+encodeURIComponent(r.session_id),`이 브라우저(${r.session_id.slice(0,6)}…)의 기록을 콘텐츠 상관없이 모두 삭제해요.`);};
     tr.after(d);});
 }
 
+/* ── 오염 기록 삭제 (v2) ── */
+function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2600);}
+async function delWhere(q,label){
+  if(!confirm(label+'\n\n지운 기록은 되돌릴 수 없어요. 삭제할까요?'))return 0;
+  const tk=await token();
+  const r=await fetch(`${SB.url}/rest/v1/${SB.table}?${q}`,{method:'DELETE',headers:{apikey:SB.key,Authorization:'Bearer '+tk,Prefer:'return=representation'}});
+  if(!r.ok){toast('삭제 실패: HTTP '+r.status);return 0;}
+  const del=await r.json().catch(()=>[]);
+  if(!del.length){toast('지워진 기록이 없어요. 삭제 권한 SQL을 실행했는지 확인해 주세요.');return 0;}
+  const ids=new Set(del.map(x=>x.id));RAW=RAW.filter(x=>!ids.has(x.id));ALL=prep(RAW,F.all);render();toast(del.length+'건 삭제했어요');return del.length;
+}
+const isNum=v=>typeof v==='number'&&isFinite(v);
+function susReason(r){const p=Array.isArray(r.party)?r.party:[];const why=[];
+  if(!p.length)why.push('파티 없음');
+  p.forEach(x=>{const v=x&&x.spd;if(!isNum(v))why.push(`${nameOf(x||{})} 속도 없음`);else if(v<50||v>400)why.push(`${nameOf(x)} 속도 ${v}`);});
+  const res=r.results||{};if(!isNum(res.aha))why.push('결과 없음');
+  return why;}
+function renderSus(){
+  const list=RAW.map(r=>({r,why:susReason(r)})).filter(x=>x.why.length);
+  if(!list.length){$('sus').innerHTML='<p class="note" style="margin:0">의심 기록이 없어요.</p>';return;}
+  $('sus').innerHTML=`<div class="tscroll"><table><tr><th>시간</th><th>콘텐츠</th><th>이유</th><th></th></tr>${list.slice(0,100).map(({r,why})=>`<tr><td style="white-space:nowrap">${kstTime(new Date(r.created_at))}</td><td>${esc(MODE_NAME[r.mode]||r.mode||'-')}</td><td>${esc(why.slice(0,3).join(' · '))}</td><td><button class="btn danger" data-delid="${r.id}">삭제</button></td></tr>`).join('')}</table></div>
+    <div class="delrow"><button class="btn danger" id="delAllSus">의심 기록 ${list.length}건 모두 삭제</button></div>`;
+  $('sus').querySelectorAll('[data-delid]').forEach(b=>b.onclick=()=>delWhere('id=eq.'+b.dataset.delid,'이 기록 1건을 삭제해요.'));
+  $('delAllSus').onclick=()=>delWhere('id=in.('+list.map(x=>x.r.id).join(',')+')',`의심 기록 ${list.length}건을 모두 삭제해요.`);
+}
 /* ── 이벤트 ── */
 function seg(id,key){$(id).querySelectorAll('button').forEach(b=>b.onclick=()=>{F[key]=b.dataset.v;$(id).querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));recentN=30;render();});}
 seg('fPeriod','period');
