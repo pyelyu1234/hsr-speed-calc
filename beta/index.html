@@ -434,7 +434,7 @@ const ACT_NAME={turn:'행동',skill:'전투 스킬',basic:'일반 공격',enh:'�
 const ACT_SHORT={skill:'전',basic:'평',enh:'강',spx:'스',swenh:'강'};
 const ROPE=19.4, ORN=5;
 const ULT_ON_ALLY=new Set(['pearl','trailblazer','yaoguang']); // 아군 대상 필살기
-function cfgOf(k){if(/^sup_/.test(k))return {short:k==='sup_hy'?'히':'곽',acts:['turn']};return CFG[k]||{short:'?',acts:['skill','basic']};}
+function cfgOf(k){if(k==='sup_gx')return {short:'곽',acts:['skill','basic']};if(/^sup_/.test(k))return {short:'히',acts:['turn']};return CFG[k]||{short:'?',acts:['skill','basic']};}
 const supSpd=k=>num(((state.supSpd||{})[k]))||(k==='hy'?num(state.hySpd):0);
 function eidOf(fx,k){return parseInt((fx.eid||{})[k])||0;}
 function lcOf(fx,k){return !!(fx.lc||{})[k];}
@@ -444,7 +444,7 @@ const swLcLabel=v=>v?`${v}중첩 (웃음 +${[20,25,30,35,40][v-1]})`:'미착용'
 function erOf(fx,k){const e=(fx.er||{})[k]||{};const sl=(active().find(a=>a.key===k)||{}).i;const vw=sl!=null&&(fx.vonw||[]).includes(sl);return 1+(e.rope?ROPE:0)/100+((e.orn||vw)?ORN:0)/100+(k==='yaoguang'&&lcOf(fx,k)?0.12:0)+(k==='evanescia'&&lcOf(fx,k)?0.208:0);}
 const ORDER={pearl:104,yaoguang:116,trailblazer:120,sparxie:144,evanescia:146,waven:156,silverwolf999:999,aeon_aha:99999};
 function planOf(k){if(!state.plan)state.plan={};if(!state.plan[k])state.plan[k]={a:{},hold:[]};const p=state.plan[k];if(!p.a)p.a={};if(!p.hold)p.hold=[];if(!p.ud)p.ud={};return p;}
-function defaultAct(k,n){if(k==='yaoguang')return n%3===2?'skill':'basic';return cfgOf(k).acts[0];}
+function defaultAct(k,n){if(k==='sup_gx')return state.gxAct==='basic'?'basic':'skill';if(k==='yaoguang')return n%3===2?'skill':'basic';return cfgOf(k).acts[0];}
 function chosenAct(k,n){const p=(state.plan||{})[k];const v=p&&p.a&&p.a[n];return (v&&cfgOf(k).acts.includes(v))?v:defaultAct(k,n);}
 function swCap(man,e2){return man?(e2?999:360):300;}
 
@@ -743,12 +743,19 @@ function simAll(T,ov){
   tryUlts(0);runQueue(0);tryUlts(0);runQueue(0);
   let guard=0;
   let hyDone=false;
+  // 곽향 (v132): 에너지 140 · 시작 70 + 추가 능력 30 · 전투 스킬 30 / 일반 공격 20 · 필살기 +5 → 다른 아군 에너지 최대치의 20%
+  const gxS=sups.find(x=>x.u.key==='sup_gx')||null, gxER=1+((state.gxRope)?0.194:0);if(gxS)gxS.E=100;
+  function gxUlt(t){if(!gxS||gxS.E<140-1e-9)return;gxS.E-=140;gxS.E+=5*gxER;const got=[];
+    chars.forEach(c=>{const mx=COST[c.key];if(!mx)return;const b=c.E;eGain(c,mx*0.2);got.push(`${cfgOf(c.key).short} +${f1(c.E-b)}`);});
+    mark(t,'곽향 필살기: 다른 아군 에너지 최대치의 20%'+(got.length?' ('+got.join(' · ')+')':''),'gxUlt');}
   while(guard++<8000){
     let best=null;st.forEach(s=>{if(s.next<=T+EPS&&(!best||s.next<best.next-1e-9))best=s;});
     if(!best)break;
     const t=best.next;best.next=t+best.iv;
     if(best===aha){aha.ev.push({t,seq:SEQ++});ahaAct(t,{});}
     else if(best.u.support){const ev={t,seq:SEQ++,act:'turn',n:best.n++,extra:false,pre:snap()};best.ev.push(ev); // 지원 캐릭터: 행동만
+      if(best===gxS){let a=chosenAct('sup_gx',ev.n);if(a==='skill'&&sp<1){a='basic';ev.fb='SP 부족';}ev.act=a;
+        if(a==='skill')spSpend(1,t);else spGain(1);gxS.E+=(a==='skill'?30:20)*gxER;gxUlt(t);}
       if(best.u.key==='sup_hy'&&hyOn()&&!hyDone){hyDone=true;chars.concat(sups).forEach(c=>setPct(c,'hy',30,t));mark(t,'히아킨 2돌: 히아킨 행동 → 모든 아군(히아킨 포함) 속도 +30%','hyE2');}
       ev.post=snap();}
     else charAct(best,t,{});
@@ -1101,11 +1108,13 @@ function update(){
   if(!state.presetBuffs)state.presetBuffs={yg:false,gx:false};
   const pbBox=document.getElementById('presetBuffs');
   if(!pbBox.dataset.built){
-    pbBox.innerHTML=PRESET_BUFFS.map(b=>`<label class="chk"><input type="checkbox" data-pb="${b.key}"> <b>${b.name}</b>&nbsp;<span class="note">${b.desc}</span> <span class="note" data-pbn="${b.key}"></span></label>`+(b.sup?`<label class="f" data-suprow="${b.key}" style="margin:0 0 6px 24px">${b.sup} 속도 <input type="number" data-supspd="${b.key}" step="0.1" style="width:80px"> <span class="note">캐릭터 화면 속도 · 넣으면 행동 순서에 나와요</span></label>`:'')).join('');
+    pbBox.innerHTML=PRESET_BUFFS.map(b=>`<label class="chk"><input type="checkbox" data-pb="${b.key}"> <b>${b.name}</b>&nbsp;<span class="note">${b.desc}</span> <span class="note" data-pbn="${b.key}"></span></label>`+(b.sup?`<div data-suprow="${b.key}" style="margin:0 0 6px 24px"><label class="f" style="margin:0">${b.sup} 속도 <input type="number" data-supspd="${b.key}" step="0.1" style="width:80px"> <span class="note">캐릭터 화면 속도 · 넣으면 행동 순서에 나와요</span></label>${b.key==='gx'?`<label class="f" style="margin:4px 0 0">곽향 행동 <select id="gxAct" style="width:auto"><option value="skill">전투 스킬 (에너지 30, SP -1)</option><option value="basic">일반 공격 (에너지 20, SP +1)</option></select></label><label class="chk"><input type="checkbox" id="gxRope"> 에너지 회복 효율 매듭 (+19.4%)</label><div class="note">곽향 필살기(에너지 140): 다른 아군 에너지 최대치의 20% 회복 · 전투 시작 에너지 100 (절반 70 + 추가 능력 30)</div>`:''}</div>`:'')).join('');
     pbBox.querySelectorAll('[data-supspd]').forEach(i=>i.oninput=()=>{state.supSpd=state.supSpd||{};state.supSpd[i.dataset.supspd]=i.value;update();});
-    pbBox.querySelectorAll('input').forEach(i=>i.onchange=()=>{state.presetBuffs[i.dataset.pb]=i.checked;update();});
+    {const ga=document.getElementById('gxAct'),gr=document.getElementById('gxRope');ga.onchange=()=>{state.gxAct=ga.value;update();};gr.onchange=()=>{state.gxRope=gr.checked;update();};}
+    pbBox.querySelectorAll('input[data-pb]').forEach(i=>i.onchange=()=>{state.presetBuffs[i.dataset.pb]=i.checked;update();});
     pbBox.dataset.built=1;
   }
+  {const ga=document.getElementById('gxAct'),gr=document.getElementById('gxRope');if(ga){ga.value=state.gxAct||'skill';gr.checked=!!state.gxRope;}}
   pbBox.querySelectorAll('[data-suprow]').forEach(r=>{const k=r.dataset.suprow,i=r.querySelector('input');r.style.display=state.presetBuffs&&state.presetBuffs[k]?'':'none';if(document.activeElement!==i)i.value=supSpd(k)||'';});
   PRESET_BUFFS.forEach(b=>{
     const i=pbBox.querySelector(`[data-pb=${b.key}]`);i.checked=!!state.presetBuffs[b.key];
