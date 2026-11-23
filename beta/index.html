@@ -411,7 +411,8 @@ function buildUnits(ahaSpd,withAha){
     return {id:'c'+c.i,slot:c.i,key:c.key,name:c.name,base:baseSpd(c),spd:finalSpd(c),color:COLORS[c.i],startAdv:Math.min(100,Math.max(0,sa)),effects:[]};
   });
   PRESET_BUFFS.filter(b=>b.sup&&state.presetBuffs&&state.presetBuffs[b.key]&&!pbBlocked(b)&&supSpd(b.key)>0).forEach(b=>{ // 히아킨·곽향 (환락 아님: 행동만 표시, 고정 버프는 적용)
-    units.push({id:'s_'+b.key,key:'sup_'+b.key,name:b.sup,base:b.base,spd:supSpd(b.key)+b.base*presetPct()/100,color:'#9aa3b2',startAdv:0,effects:[],support:true});});
+    const orn=(state.supOrn||{})[b.key]||'',sa=orn==='hwan'||(orn==='vonw'&&supSpd(b.key)>=120)?40:0; // 환커공 / 바커공(속도 120 이상): 전투 시작 게이지 +40%
+    units.push({id:'s_'+b.key,key:'sup_'+b.key,name:b.sup,base:b.base,spd:supSpd(b.key)+b.base*presetPct()/100,color:'#9aa3b2',startAdv:sa,effects:[],support:true});});
   const aha={id:'aha',name:'아하 타임',spd:ahaSpd,color:COLORS[4],startAdv:0,effects:[]};
   const marks=[];
   if(hasKey('aeon_aha')&&fx.ahaMode==='manual')parseTimes(fx.ahaUlt).forEach(t=>{marks.push({t,name:'에이언즈 아하 궁극기'});aha.effects.push({t,adv:20,src:'에이언즈 아하 궁극기'});});
@@ -744,7 +745,7 @@ function simAll(T,ov){
   let guard=0;
   let hyDone=false;
   // 곽향 (v132): 에너지 140 · 시작 70 + 추가 능력 30 · 전투 스킬 30 / 일반 공격 20 · 필살기 +5 → 다른 아군 에너지 최대치의 20%
-  const gxS=sups.find(x=>x.u.key==='sup_gx')||null, gxER=1+((state.gxRope)?0.194:0);if(gxS)gxS.E=100;
+  const gxS=sups.find(x=>x.u.key==='sup_gx')||null, gxER=1+((state.gxRope)?0.194:0)+((((state.supOrn||{}).gx)==='vonw'||((state.supOrn||{}).gx)==='er5')?0.05:0);if(gxS)gxS.E=100;
   function gxUlt(t){if(!gxS||gxS.E<140-1e-9)return;gxS.E-=140;gxS.E+=5*gxER;const got=[];
     chars.forEach(c=>{const mx=COST[c.key];if(!mx)return;const b=c.E;eGain(c,mx*0.2);got.push(`${cfgOf(c.key).short} +${f1(c.E-b)}`);});
     mark(t,'곽향 필살기: 다른 아군 에너지 최대치의 20%'+(got.length?' ('+got.join(' · ')+')':''),'gxUlt');}
@@ -1108,13 +1109,15 @@ function update(){
   if(!state.presetBuffs)state.presetBuffs={yg:false,gx:false};
   const pbBox=document.getElementById('presetBuffs');
   if(!pbBox.dataset.built){
-    pbBox.innerHTML=PRESET_BUFFS.map(b=>`<label class="chk"><input type="checkbox" data-pb="${b.key}"> <b>${b.name}</b>&nbsp;<span class="note">${b.desc}</span> <span class="note" data-pbn="${b.key}"></span></label>`+(b.sup?`<div data-suprow="${b.key}" style="margin:0 0 6px 24px"><label class="f" style="margin:0">${b.sup} 속도 <input type="number" data-supspd="${b.key}" step="0.1" style="width:80px"> <span class="note">캐릭터 화면 속도 · 넣으면 행동 순서에 나와요</span></label>${b.key==='gx'?`<label class="f" style="margin:4px 0 0">곽향 행동 <select id="gxAct" style="width:auto"><option value="skill">전투 스킬 (에너지 30, SP -1)</option><option value="basic">일반 공격 (에너지 20, SP +1)</option></select></label><label class="chk"><input type="checkbox" id="gxRope"> 에너지 회복 효율 매듭 (+19.4%)</label><div class="note">곽향 필살기(에너지 140): 다른 아군 에너지 최대치의 20% 회복 · 전투 시작 에너지 100 (절반 70 + 추가 능력 30)</div>`:''}</div>`:'')).join('');
+    pbBox.innerHTML=PRESET_BUFFS.map(b=>`<label class="chk"><input type="checkbox" data-pb="${b.key}"> <b>${b.name}</b>&nbsp;<span class="note">${b.desc}</span> <span class="note" data-pbn="${b.key}"></span></label>`+(b.sup?`<div data-suprow="${b.key}" style="margin:0 0 6px 24px"><label class="f" style="margin:0">${b.sup} 속도 <input type="number" data-supspd="${b.key}" step="0.1" style="width:80px"> <span class="note">캐릭터 화면 속도 · 넣으면 행동 순서에 나와요</span></label><label class="f" style="margin:4px 0 0">${b.sup} 장신구 <select data-suporn="${b.key}" style="width:auto"><option value="">없음 · 기타</option><option value="vonw">바커공 (에충 +5% · 속도 120↑ 시작 게이지 +40%)</option><option value="hwan">환커공 (시작 게이지 +40%)</option><option value="er5">에충 장신구 (+5%)</option></select></label>${b.key==='gx'?`<label class="f" style="margin:4px 0 0">곽향 행동 <select id="gxAct" style="width:auto"><option value="skill">전투 스킬 (에너지 30, SP -1)</option><option value="basic">일반 공격 (에너지 20, SP +1)</option></select></label><label class="chk"><input type="checkbox" id="gxRope"> 에너지 회복 효율 매듭 (+19.4%)</label><div class="note">곽향 필살기(에너지 140): 다른 아군 에너지 최대치의 20% 회복 · 전투 시작 에너지 100 (절반 70 + 추가 능력 30)</div>`:''}</div>`:'')).join('');
     pbBox.querySelectorAll('[data-supspd]').forEach(i=>i.oninput=()=>{state.supSpd=state.supSpd||{};state.supSpd[i.dataset.supspd]=i.value;update();});
+    pbBox.querySelectorAll('[data-suporn]').forEach(sl=>sl.onchange=()=>{state.supOrn=state.supOrn||{};state.supOrn[sl.dataset.suporn]=sl.value;update();});
     {const ga=document.getElementById('gxAct'),gr=document.getElementById('gxRope');ga.onchange=()=>{state.gxAct=ga.value;update();};gr.onchange=()=>{state.gxRope=gr.checked;update();};}
     pbBox.querySelectorAll('input[data-pb]').forEach(i=>i.onchange=()=>{state.presetBuffs[i.dataset.pb]=i.checked;update();});
     pbBox.dataset.built=1;
   }
   {const ga=document.getElementById('gxAct'),gr=document.getElementById('gxRope');if(ga){ga.value=state.gxAct||'skill';gr.checked=!!state.gxRope;}}
+  pbBox.querySelectorAll('[data-suporn]').forEach(sl=>{sl.value=(state.supOrn||{})[sl.dataset.suporn]||'';});
   pbBox.querySelectorAll('[data-suprow]').forEach(r=>{const k=r.dataset.suprow,i=r.querySelector('input');r.style.display=state.presetBuffs&&state.presetBuffs[k]?'':'none';if(document.activeElement!==i)i.value=supSpd(k)||'';});
   PRESET_BUFFS.forEach(b=>{
     const i=pbBox.querySelector(`[data-pb=${b.key}]`);i.checked=!!state.presetBuffs[b.key];
