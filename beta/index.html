@@ -1326,7 +1326,11 @@ window.addEventListener('pagehide',flushCollect);
 (function(){const n=document.getElementById('collectNote'),c=document.getElementById('optOut');if(!collectOn()||!n)return;n.style.display='';c.checked=optedOut();
   c.onchange=()=>{try{localStorage.setItem('hsrOptOut',c.checked?'1':'0');}catch(e){}};})();
 
+// 테스트 사이트 전용: ?test=swlc → 은랑 전광 + 에이언즈 필살기 낭비 확인용 세팅
+const TEST_SWLC=/\/beta\//.test(location.pathname)&&/[?&]test=swlc\b/.test(location.search);
+if(TEST_SWLC){state.chars=['aeon_aha','pearl','silverwolf999','sparxie'].map(fromDb);state.fx=null;state.plan={};state.cycles=3;state.mode='moc';state.presetBuffs={gx:false};}
 bindCoef();bindSettings();renderChars();
+if(TEST_SWLC){const f=fxState();f.lc={silverwolf999:true};f.lcS={silverwolf999:1};update();try{history.replaceState(null,'',location.pathname);}catch(e){}}
 try{if(/\/beta\//.test(location.pathname))document.getElementById('betaBar').hidden=false;}catch(e){}
 // ===== v109: 익명 순위 =====
 var RANK={cache:new Map(),timer:null,last:'',off:false};
