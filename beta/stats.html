@@ -391,7 +391,7 @@ function partyDet(k,c,mc){
   const vb={};rs.forEach(r=>{const key=r._party.slice().sort((a,b)=>cid(a)<cid(b)?-1:1).map(p=>`${cid(p)}#${+p.eid||0}#${+p.lc||0}`).join('|');const v=vb[key]=vb[key]||{n:0,aha:[]};v.n++;if(cyc(r)===mc&&isNum(r._res.aha))v.aha.push(r._res.aha);});
   const vt=Object.entries(vb).sort((a,b)=>b[1].n-a[1].n).slice(0,5).map(([key,v])=>`<div class="vrow"><span>${key.split('|').map(m=>{const [id,e,l]=m.split('#');return `${esc(cname(id).replace('에이언즈 아하','에이언즈'))} <b>${e}돌${lcShort(id,l)?'·'+lcShort(id,l):''}</b>`;}).join(' / ')}</span><span class="num"><b>${v.n}건</b>${v.aha.length?` · 아하 ${r1(avg(v.aha))}회`:''}</span></div>`).join('');
   const sup=[['곽향','gx'],['히아킨','hy']].map(([nm,kk])=>`${nm} <b>${pct(rs.filter(r=>(r._set.presetBuffs||{})[kk]).length,rs.length)}%</b>`).join(' · ');
-  const ent=distTxt(rs.map(r=>{const p=r._party.find(p=>+p.slot===+r._set.entry+1)||r._party[+r._set.entry];return p?cname(cid(p)):'-';}));
+  const ent=distTxt(rs.map(r=>{if(r._set.entry==null)return '정보 없음 (예전 기록)';const p=r._party.find(p=>+p.slot===+r._set.entry+1)||r._party[+r._set.entry];return p?cname(cid(p)):'정보 없음 (예전 기록)';}));
   const rl=rs.filter(r=>r._set.buffOn!==false&&(r._set.rules||[]).length).length;
   return `<div class="det" style="cursor:default">
     <div class="dsec">아하 타임</div>
@@ -452,7 +452,7 @@ function detHtml(r){
   return `<div class="det">
     <div class="dsec">기본</div>
     ${line('콘텐츠 · 사이클',`${esc(MODE_NAME[r.mode]||r.mode||'-')} · ${cyc(r)}사이클`)}
-    ${line('전투 진입 캐릭터',s.entry!=null?esc(tgt(s.entry)):'-')}
+    ${line('전투 진입 캐릭터',s.entry!=null?esc(tgt(s.entry)):'정보 없음 (예전 기록)')}
     ${line('서포터',sup.length?esc(sup.join(' · ')):'없음')}
     ${line('전투 중 속도 버프',s.buffOn===false?'끔':(rl.length?esc(rl.join(' · ')):'규칙 없음')+(+s.teamPct?` · 예전 팀 버프 ${esc(s.teamPct)}%`:''))}
     ${line('직접 조정',`${esc(s.planEdits||0)}개`)}
