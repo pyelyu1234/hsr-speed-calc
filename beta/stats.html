@@ -91,6 +91,9 @@ tr.pick.on td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .item.rec{cursor:pointer}
 .det{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted)}
 .det b{color:var(--text);font-weight:600}
+.dsec{margin:10px 0 4px;font-size:11.5px;font-weight:800;color:var(--accent);letter-spacing:.3px}.dsec:first-child{margin-top:0}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid var(--grid);font-size:12.5px}.kv span{color:var(--muted);white-space:nowrap}.kv b{color:var(--text);font-weight:600;text-align:right}
+.cset{padding:5px 0;border-bottom:1px solid var(--grid);font-size:12.5px;line-height:1.45}.cset b{color:var(--text);margin-right:6px}.cset span{color:var(--muted)}
 .delrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .rank{display:inline-block;min-width:26px;color:var(--accent);font-weight:800}
 .why{color:var(--bad);font-size:12px;margin-top:2px}
@@ -340,13 +343,15 @@ function renderChars(){
     vbars($('spdHist'),it,{labelEvery:it.length>10?2:1});}else $('spdHist').innerHTML='<p class="note">데이터 없음</p>';
   const ed={};ps.forEach(p=>{const e=+p.eid||0;ed[e]=(ed[e]||0)+1;});
   hbars($('eidDist'),[0,1,2,3,4,5,6].filter(e=>ed[e]||e<=2).map(e=>({label:e+'돌',v:ed[e]||0})),{max:ps.length,fmt:i=>`<b>${pct(i.v,ps.length)}%</b> ${i.v}`});
-  const key=ps[0].key,cnt=f=>rs.filter(f).length;
+  const inSet=(arr,p,r)=>Array.isArray(arr)&&arr.some(v=>v===(p.slot!=null?+p.slot-1:r._party.indexOf(p))||v===p.key); // 설정은 칸 번호(0부터)로 저장
+  const cnt=f=>ps.filter((p,i)=>f(p,rs[i])).length;
   hbars($('relDist'),[
-    ['환락만상 (장신구)',r=>(r._set.orns||[]).includes(key)],
-    ['바커공 (장신구)',r=>(r._set.vonw||[]).includes(key)],
-    ['매 4세트',r=>(r._set.eagle||[]).includes(key)],
-    ['에너지 회복 입력',(r,i)=>false]
-  ].map(([l,f],i)=>({label:l,v:i===3?ps.filter(p=>p.er).length:cnt(f)})),{max:ps.length,fmt:i=>`<b>${pct(i.v,ps.length)}%</b> ${i.v}`});
+    ['환락만상',(p,r)=>inSet(r._set.orns,p,r)],
+    ['바커공',(p,r)=>inSet(r._set.vonw,p,r)],
+    ['에너지 회복 장신구',(p,r)=>!inSet(r._set.orns,p,r)&&!inSet(r._set.vonw,p,r)&&!!(p.er&&p.er.orn)],
+    ['에너지 회복 밧줄',p=>!!(p.er&&p.er.rope)],
+    ['매 4세트',(p,r)=>inSet(r._set.eagle,p,r)]
+  ].map(([l,f])=>({label:l,v:cnt(f)})),{max:ps.length,fmt:i=>`<b>${pct(i.v,ps.length)}%</b> ${i.v}`});
 }
 function renderParty(){
   const rows=filtered(),n=rows.length,mc=mainCycle(rows),cb={};
@@ -370,11 +375,46 @@ function renderRec(){
     const bs=$('recent').querySelector('[data-delses]');if(bs)bs.onclick=()=>delWhere('session_id=eq.'+encodeURIComponent(r.session_id),`이 브라우저(${r.session_id.slice(0,6)}…)의 기록을 콘텐츠 상관없이 모두 삭제해요.`);}
 }
 function detHtml(r){
-  const s=r._set,res=r._res;
-  const kv=o=>Object.entries(o||{}).map(([k,v])=>`${esc(SHORT[k]||k)} ${esc(v)}`).join(' · ')||'-';
-  const sup=[['곽향','gx'],['히아킨','hy']].filter(([,k])=>(s.presetBuffs||{})[k]).map(([n])=>n).join(' · ')||'없음';
+  const s=r._set,res=r._res,P=r._party;
+  const bySlot=i=>{i=+i;if(!(i>=0))return null;return P.find(p=>+p.slot===i+1)||P[i]||null;}; // 설정의 칸 번호는 0부터, 파티의 slot은 1부터
+  const nm=p=>p?cname(cid(p)):'-';
+  const tgt=i=>{const p=bySlot(i);return p?nm(p):'없음';};
+  const has=(arr,p,i)=>Array.isArray(arr)&&arr.some(v=>v===(p.slot!=null?+p.slot-1:i)||v===p.key);
+  const kv=o=>Object.entries(o||{}).map(([k,v])=>`${esc(SHORT[k]||(k.startsWith('sup_')?{sup_gx:'곽향',sup_hy:'히아킨'}[k]||k:k))} ${esc(v)}`).join(' · ')||'-';
+  const line=(k,v)=>`<div class="kv"><span>${k}</span><b>${v}</b></div>`;
+  // 캐릭터별
+  const chars=P.map((p,i)=>{const t=[];const e=p.er||{};
+    t.push(`속도 ${isNum(p.spd)?r1(p.spd):'-'}`,`${+p.eid||0}돌`);
+    if(p.key==='aeon_aha')t.push(+p.lc>0?`전용 광추 ${p.lc}중첩`:'전용 광추 없음');
+    else if(p.key==='silverwolf999')t.push(+p.lc>0?`전용 광추 ${p.lc}중첩`:'전용 광추 없음');
+    else if(p.key!=='custom')t.push(+p.lc>0?'전용 광추':'전용 광추 없음');
+    const orn=has(s.orns,p,i)?'환락만상':has(s.vonw,p,i)?'바커공':e.orn?'에너지 회복 장신구':'';if(orn)t.push(orn);
+    if(e.rope)t.push('에너지 회복 밧줄');
+    if(has(s.eagle,p,i))t.push('매 4세트');
+    if(p.key==='aeon_aha')t.push(`전투 스킬 대상: ${tgt(s.wpTarget)}`);
+    if(p.key==='pearl')t.push(`필살기 대상: ${tgt(s.pearlTgt)}`,s.pearlTech===false?'비술 안 씀':'비술 사용');
+    if(p.key==='trailblazer'&&s.tbTgt!=null)t.push(`필살기 대상: ${tgt(s.tbTgt)}`);
+    if(p.key==='silverwolf999'&&s.swUlt)t.push(`필살기 히든 ${esc(s.swUlt)}`);
+    if(p.key==='waven'&&s.wavCost)t.push(`필살기 비용 ${esc(s.wavCost)}`);
+    return `<div class="cset"><b>${p.slot!=null?esc(p.slot)+'번 ':''}${esc(nm(p))}</b><span>${t.map(esc).join(' · ')}</span></div>`;}).join('');
+  // 속도 버프
+  const rt={all:'모든 아군',fast:'빠른',slow:'느린'};
+  const rl=(s.rules||[]).map(x=>{const who=x.t==='slot'?`${tgt(x.slot)}`:x.t==='all'?'모든 아군':`${rt[x.t]||x.t} ${x.n||1}명`;return `${who} ${x.v>0?'+':''}${x.v}${x.u==='%'?'%':''}`;});
+  const sup=[['곽향','gx'],['히아킨','hy']].filter(([,k])=>(s.presetBuffs||{})[k]).map(([n])=>n);
   const nSes=r.session_id?RAW.filter(x=>x.session_id===r.session_id).length:0;
-  return `<div class="det"><b>아하 속도</b> ${esc(res.ahaSpd||'-')} · <b>총</b> ${esc(res.T||'-')} AV${res.ahaBonus?` · <b>추가 아하</b> ${esc(res.ahaBonus)}회`:''}<br><b>행동</b> ${kv(res.actions)}<br><b>필살기</b> ${kv(res.ults)}<br><b>서포터</b> ${esc(sup)} · <b>직접 조정</b> ${esc(s.planEdits||0)}개<br><span style="opacity:.7">사용자 ${esc((r.session_id||'').slice(0,6))}…</span>
+  return `<div class="det">
+    <div class="dsec">기본</div>
+    ${line('콘텐츠 · 사이클',`${esc(MODE_NAME[r.mode]||r.mode||'-')} · ${cyc(r)}사이클`)}
+    ${line('전투 진입 캐릭터',s.entry!=null?esc(tgt(s.entry)):'-')}
+    ${line('서포터',sup.length?esc(sup.join(' · ')):'없음')}
+    ${line('전투 중 속도 버프',s.buffOn===false?'끔':(rl.length?esc(rl.join(' · ')):'규칙 없음')+(+s.teamPct?` · 예전 팀 버프 ${esc(s.teamPct)}%`:''))}
+    ${line('직접 조정',`${esc(s.planEdits||0)}개`)}
+    <div class="dsec">캐릭터</div>${chars||'<div class="note">-</div>'}
+    <div class="dsec">결과</div>
+    ${line('아하 타임',`${isNum(res.aha)?res.aha+'회':'-'}${res.ahaBonus?` (보너스 ${esc(res.ahaBonus)})`:''} · 속도 ${esc(res.ahaSpd||'-')} · ${esc(res.T||'-')} AV`)}
+    ${line('행동 수',kv(res.actions))}
+    ${line('필살기 수',kv(res.ults))}
+    <div class="note" style="margin-top:6px">사용자 ${esc((r.session_id||'').slice(0,6))}… · 기록 #${esc(r.id)}</div>
     <div class="delrow"><button class="btn danger sm" data-del1>이 기록 삭제</button>${nSes?`<button class="btn danger sm" data-delses>이 브라우저 기록 모두 삭제 (${nSes}건)</button>`:''}</div></div>`;
 }
 
