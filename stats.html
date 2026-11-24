@@ -91,6 +91,10 @@ tr.pick.on td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .item.rec{cursor:pointer}
 .det{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted)}
 .det b{color:var(--text);font-weight:600}
+.item.party{cursor:pointer}.item.party.open{border-color:var(--accent)}
+.mblk{padding:7px 0;border-bottom:1px solid var(--grid);font-size:12.5px}.mhd{display:flex;justify-content:space-between;gap:8px;margin-bottom:3px}.mhd>b{color:var(--text)}.mhd span{color:var(--muted)}.mhd span b{color:var(--text)}.mhd small{color:var(--muted)}
+.mline{display:flex;gap:10px;color:var(--muted);line-height:1.6}.mline>span:first-child{flex:none;width:58px}.mline b{color:var(--text);font-weight:600}
+.vrow{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--grid);font-size:12px;color:var(--muted)}.vrow b{color:var(--text);font-weight:600}
 .dsec{margin:10px 0 4px;font-size:11.5px;font-weight:800;color:var(--accent);letter-spacing:.3px}.dsec:first-child{margin-top:0}
 .kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid var(--grid);font-size:12.5px}.kv span{color:var(--muted);white-space:nowrap}.kv b{color:var(--text);font-weight:600;text-align:right}
 .cset{padding:5px 0;border-bottom:1px solid var(--grid);font-size:12.5px;line-height:1.45}.cset b{color:var(--text);margin-right:6px}.cset span{color:var(--muted)}
@@ -180,8 +184,9 @@ tr.pick.on td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
     <!-- 파티 -->
     <section data-sec="party" hidden>
       <div class="card">
-        <h2>파티 조합 TOP 10 <span class="note">이름 옆 숫자는 평균 속도</span></h2>
+        <h2>파티 조합 <span class="note">이름 옆 숫자는 평균 속도 · 누르면 상세 통계</span></h2>
         <div class="list" id="combos"></div>
+        <div class="row" style="margin-top:10px"><button class="btn" id="pMore">더 보기</button><span class="note" id="pInfo"></span></div>
       </div>
     </section>
 
@@ -194,6 +199,7 @@ tr.pick.on td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
       </div>
       <div class="card">
         <h2>최근 기록 <span class="note">누르면 상세 · 삭제</span></h2>
+        <div id="recFilter" style="margin:-4px 0 10px"></div>
         <div class="list" id="recent"></div>
         <div class="row" style="margin-top:10px"><button class="btn" id="more">더 보기</button><span class="note" id="recentInfo"></span></div>
       </div>
@@ -250,7 +256,7 @@ async function fetchAll(){
 }
 
 /* ── 데이터 ── */
-let RAW=[],ALL=[],F={period:'all',mode:'moc',all:false,sec:'sum',ch:null},recentN=20,openRec=null;
+let RAW=[],ALL=[],F={period:'all',mode:'moc',all:false,sec:'sum',ch:null,party:null},partyN=10,openParty=null,recentN=20,openRec=null;
 function prep(rows,all){
   // 기본: 한 사람(session_id)당 콘텐츠별 최신 1건 · 중복 포함: 방문당 최신 1건
   const seen=new Set(),out=[];
@@ -353,18 +359,59 @@ function renderChars(){
     ['매 4세트',(p,r)=>inSet(r._set.eagle,p,r)]
   ].map(([l,f])=>({label:l,v:cnt(f)})),{max:ps.length,fmt:i=>`<b>${pct(i.v,ps.length)}%</b> ${i.v}`});
 }
+const pkey=r=>r._party.map(cid).sort().join('|');
+const lcShort=(id,l)=>+l>0?(id==='aeon_aha'||id==='silverwolf999'?'전'+l:'광'):'';
+function distTxt(arr,fmt){const c={};arr.forEach(v=>c[v]=(c[v]||0)+1);return Object.entries(c).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${fmt?fmt(k):k} <b>${pct(v,arr.length)}%</b>`).join(' · ');}
 function renderParty(){
   const rows=filtered(),n=rows.length,mc=mainCycle(rows),cb={};
-  rows.forEach(r=>{if(!r._party.length)return;const k=r._party.map(cid).sort().join('|');const c=cb[k]=cb[k]||{n:0,aha:[],spd:{}};c.n++;
+  rows.forEach(r=>{if(!r._party.length)return;const k=pkey(r);const c=cb[k]=cb[k]||{n:0,aha:[],spd:{},rows:[]};c.n++;c.rows.push(r);
     if(cyc(r)===mc&&isNum(r._res.aha))c.aha.push(r._res.aha);
     r._party.forEach(p=>{const s=+p.spd;if(isFinite(s)&&s>0)(c.spd[cid(p)]=c.spd[cid(p)]||[]).push(s);});});
-  const ct=Object.entries(cb).sort((a,b)=>b[1].n-a[1].n).slice(0,10);
-  $('combos').innerHTML=ct.length?ct.map(([k,c],i)=>`<div class="item"><div class="l1"><span><span class="rank">${i+1}</span><b>${c.n}건</b> <span class="note">${pct(c.n,n)}%</span></span><span class="r">${c.aha.length?`아하 ${r1(avg(c.aha))}회 <span class="note">(${mc}사이클)</span>`:'<span class="note">아하 -</span>'}</span></div>`
-    +memHtml(k.split('|').map(id=>({n:cname(id),s:c.spd[id]?r1(avg(c.spd[id])):'-'})))+'</div>').join(''):'<p class="note" style="margin:0">데이터 없음</p>';
+  const all=Object.entries(cb).sort((a,b)=>b[1].n-a[1].n),ct=all.slice(0,partyN);
+  $('combos').innerHTML=ct.length?ct.map(([k,c],i)=>`<div class="item party${openParty===k?' open':''}" data-k="${esc(k)}"><div class="l1"><span><span class="rank">${i+1}</span><b>${c.n}건</b> <span class="note">${pct(c.n,n)}%</span></span><span class="r">${c.aha.length?`아하 ${r1(avg(c.aha))}회 <span class="note">(${mc}사이클)</span>`:'<span class="note">아하 -</span>'}</span></div>`
+    +memHtml(k.split('|').map(id=>({n:cname(id),s:c.spd[id]?r1(avg(c.spd[id])):'-'})))+(openParty===k?partyDet(k,c,mc):'')+'</div>').join(''):'<p class="note" style="margin:0">데이터 없음</p>';
+  $('pInfo').textContent=all.length?`${ct.length} / ${all.length}개 조합`:'';$('pMore').hidden=ct.length>=all.length;
+  $('combos').querySelectorAll('.item.party').forEach(el=>el.onclick=e=>{if(e.target.closest('button'))return;openParty=openParty===el.dataset.k?null:el.dataset.k;renderParty();});
+  const go=$('combos').querySelector('[data-gorec]');if(go)go.onclick=()=>{F.party=openParty;F.sec='rec';document.querySelectorAll('#sTabs .stab').forEach(x=>x.classList.toggle('on',x.dataset.v==='rec'));recentN=20;scrollTo({top:0});render();};
 }
+function partyDet(k,c,mc){
+  const rs=c.rows,ids=k.split('|');
+  // 아하 타임 분포 (같은 사이클)
+  const ah=rs.filter(r=>cyc(r)===mc&&isNum(r._res.aha)).map(r=>r._res.aha);
+  const sp=rs.map(r=>+r._res.ahaSpd).filter(x=>isFinite(x)&&x>0);
+  // 파티원별
+  const mem=ids.map(id=>{const ps=rs.map(r=>r._party.find(p=>cid(p)===id)).filter(Boolean);const v=ps.map(p=>+p.spd).filter(x=>isFinite(x)&&x>0);
+    const orn=ps.map((p,i)=>{const r=rs[i],sl=p.slot!=null?+p.slot-1:r._party.indexOf(p),inA=a=>Array.isArray(a)&&a.includes(sl);return inA(r._set.orns)?'환락만상':inA(r._set.vonw)?'바커공':(p.er&&p.er.orn)?'에충 장신구':'기타';});
+    const ln=(k,v)=>`<div class="mline"><span>${k}</span><span>${v}</span></div>`;
+    return `<div class="mblk"><div class="mhd"><b>${esc(cname(id))}</b><span>${v.length?`평균 <b>${r1(avg(v))}</b> <small>${r1(Math.min(...v))}~${r1(Math.max(...v))}</small>`:'-'}</span></div>`
+      +ln('돌파',distTxt(ps.map(p=>+p.eid||0),e=>e+'돌'))
+      +ln('전용 광추',id==='aeon_aha'||id==='silverwolf999'?distTxt(ps.map(p=>+p.lc||0),l=>+l?l+'중첩':'없음'):`<b>${pct(ps.filter(p=>+p.lc>0).length,ps.length)}%</b>`)
+      +ln('장신구',distTxt(orn))+'</div>';}).join('');
+  // 돌파 + 광추 조합
+  const vb={};rs.forEach(r=>{const key=r._party.slice().sort((a,b)=>cid(a)<cid(b)?-1:1).map(p=>`${cid(p)}#${+p.eid||0}#${+p.lc||0}`).join('|');const v=vb[key]=vb[key]||{n:0,aha:[]};v.n++;if(cyc(r)===mc&&isNum(r._res.aha))v.aha.push(r._res.aha);});
+  const vt=Object.entries(vb).sort((a,b)=>b[1].n-a[1].n).slice(0,5).map(([key,v])=>`<div class="vrow"><span>${key.split('|').map(m=>{const [id,e,l]=m.split('#');return `${esc(cname(id).replace('에이언즈 아하','에이언즈'))} <b>${e}돌${lcShort(id,l)?'·'+lcShort(id,l):''}</b>`;}).join(' / ')}</span><span class="num"><b>${v.n}건</b>${v.aha.length?` · 아하 ${r1(avg(v.aha))}회`:''}</span></div>`).join('');
+  const sup=[['곽향','gx'],['히아킨','hy']].map(([nm,kk])=>`${nm} <b>${pct(rs.filter(r=>(r._set.presetBuffs||{})[kk]).length,rs.length)}%</b>`).join(' · ');
+  const ent=distTxt(rs.map(r=>{if(r._set.entry==null)return '정보 없음 (예전 기록)';const p=r._party.find(p=>+p.slot===+r._set.entry+1)||r._party[+r._set.entry];return p?cname(cid(p)):'정보 없음 (예전 기록)';}));
+  const rl=rs.filter(r=>r._set.buffOn!==false&&(r._set.rules||[]).length).length;
+  return `<div class="det" style="cursor:default">
+    <div class="dsec">아하 타임</div>
+    <div class="kv"><span>${mc}사이클 횟수</span><b>${ah.length?distTxt(ah,x=>x+'회'):'-'}</b></div>
+    <div class="kv"><span>아하 타임 속도</span><b>${sp.length?`평균 ${r1(avg(sp))} · ${r1(Math.min(...sp))}~${r1(Math.max(...sp))}`:'-'}</b></div>
+    <div class="dsec">파티원</div>
+${mem}
+    <div class="dsec">돌파 + 전용 광추 조합 <span class="note" style="font-weight:600">상위 5</span></div>${vt}
+    <div class="dsec">그 밖의 세팅</div>
+    <div class="kv"><span>서포터</span><b>${sup}</b></div>
+    <div class="kv"><span>전투 진입</span><b>${ent||'-'}</b></div>
+    <div class="kv"><span>속도 버프 규칙 사용</span><b>${pct(rl,rs.length)}%</b></div>
+    <div class="delrow"><button class="btn sm" data-gorec>이 파티 기록 ${rs.length}건 보기</button></div></div>`;
+}
+
 function renderRec(){
   renderSus();
-  const rows=filtered(),show=rows.slice(0,recentN);
+  const rows=filtered().filter(r=>!F.party||pkey(r)===F.party),show=rows.slice(0,recentN);
+  $('recFilter').innerHTML=F.party?`<span class="chip on" style="display:inline-flex;gap:6px;align-items:center">파티: ${esc(F.party.split('|').map(cname).join(' · '))} <button class="btn sm" id="recFx" style="padding:0 6px">✕</button></span>`:'';
+  if(F.party)$('recFx').onclick=()=>{F.party=null;recentN=20;renderRec();};
   $('recent').innerHTML=show.length?show.map(r=>`<div class="item rec" data-id="${r.id}"><div class="l1"><span class="t">${kstTime(r._d)} · ${esc(MODE_NAME[r.mode]||r.mode||'-')} · ${cyc(r)}사이클</span><span class="r">${isNum(r._res.aha)?`아하 ${r._res.aha}회`:'<span class="note">결과 없음</span>'}</span></div>`
     +memHtml(r._party.map(p=>({n:cname(cid(p)),s:`${isNum(p.spd)?r1(p.spd):'-'} <small>${+p.eid||0}돌${lcTxt(p)}</small>`})))+(openRec===r.id?detHtml(r):'')+'</div>').join(''):'<p class="note" style="margin:0">데이터 없음</p>';
   $('recentInfo').textContent=`${show.length} / ${rows.length}건`;
@@ -405,7 +452,7 @@ function detHtml(r){
   return `<div class="det">
     <div class="dsec">기본</div>
     ${line('콘텐츠 · 사이클',`${esc(MODE_NAME[r.mode]||r.mode||'-')} · ${cyc(r)}사이클`)}
-    ${line('전투 진입 캐릭터',s.entry!=null?esc(tgt(s.entry)):'-')}
+    ${line('전투 진입 캐릭터',s.entry!=null?esc(tgt(s.entry)):'정보 없음 (예전 기록)')}
     ${line('서포터',sup.length?esc(sup.join(' · ')):'없음')}
     ${line('전투 중 속도 버프',s.buffOn===false?'끔':(rl.length?esc(rl.join(' · ')):'규칙 없음')+(+s.teamPct?` · 예전 팀 버프 ${esc(s.teamPct)}%`:''))}
     ${line('직접 조정',`${esc(s.planEdits||0)}개`)}
@@ -446,8 +493,9 @@ function renderSus(){
 /* ── 이벤트 ── */
 function tabs(sel,cls,key,after){document.querySelectorAll(sel).forEach(b=>b.onclick=()=>{F[key]=b.dataset.v;document.querySelectorAll(sel).forEach(x=>x.classList.toggle(cls,x===b));if(after)after();render();});}
 tabs('#fPeriod .chip','on','period',()=>{recentN=20;});
-tabs('#mTabs .mtab','on','mode',()=>{recentN=20;F.ch=null;});
+tabs('#mTabs .mtab','on','mode',()=>{recentN=20;F.ch=null;F.party=null;openParty=null;partyN=10;});
 tabs('#sTabs .stab','on','sec',()=>scrollTo({top:0}));
+$('pMore').onclick=()=>{partyN+=10;renderParty();};
 $('allRec').onchange=e=>{F.all=e.target.checked;ALL=prep(RAW,F.all);recentN=20;render();};
 $('more').onclick=()=>{recentN+=30;renderRec();};
 try{$('exMine').checked=localStorage.getItem('hsrOptOut')==='1';}catch(e){}
