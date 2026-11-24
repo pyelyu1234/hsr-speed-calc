@@ -276,7 +276,7 @@ function filtered(){
 const cid=p=>p.key&&p.key!=='custom'?p.key:'n:'+(p.name||'?');
 const cname=id=>id.startsWith('n:')?id.slice(2):(SHORT[id]||id);
 const cyc=r=>Math.max(1,Math.round(+r._set.cycles)||3);
-const lcTxt=p=>(p.key==='aeon_aha'||p.key==='silverwolf999')?(+p.lc>0?` · 전광 ${p.lc}재`:''):(+p.lc>0?' · 전광 착용':'');
+const lcTxt=p=>(p.key==='aeon_aha'||p.key==='silverwolf999')?(+p.lc>0?` · 전광 ${p.lc}재`:' · 전광 미착용'):(+p.lc>0?' · 전광 착용':' · 전광 미착용');
 function mainCycle(rows){const c={};rows.forEach(r=>{if(isNum(r._res.aha))c[cyc(r)]=(c[cyc(r)]||0)+1;});const e=Object.entries(c).sort((a,b)=>b[1]-a[1])[0];return e?+e[0]:3;}
 
 /* ── 그리기 ── */
@@ -360,7 +360,7 @@ function renderChars(){
   ].map(([l,f])=>({label:l,v:cnt(f)})),{max:ps.length,fmt:i=>`<b>${pct(i.v,ps.length)}%</b> ${i.v}`});
 }
 const pkey=r=>r._party.map(cid).sort().join('|');
-const lcShort=(id,l)=>+l>0?(id==='aeon_aha'||id==='silverwolf999'?'전광 '+l+'재':'전광 착용'):'';
+const lcShort=(id,l)=>+l>0?(id==='aeon_aha'||id==='silverwolf999'?'전광 '+l+'재':'전광 착용'):'전광 미착용';
 function distTxt(arr,fmt){const c={};arr.forEach(v=>c[v]=(c[v]||0)+1);return Object.entries(c).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${fmt?fmt(k):k} <b>${pct(v,arr.length)}%</b>`).join(' · ');}
 function renderParty(){
   const rows=filtered(),n=rows.length,mc=mainCycle(rows),cb={};
@@ -385,7 +385,7 @@ function partyDet(k,c,mc){
     const ln=(k,v)=>`<div class="mline"><span>${k}</span><span>${v}</span></div>`;
     return `<div class="mblk"><div class="mhd"><b>${esc(cname(id))}</b><span>${v.length?`평균 <b>${r1(avg(v))}</b> <small>${r1(Math.min(...v))}~${r1(Math.max(...v))}</small>`:'-'}</span></div>`
       +ln('돌파',distTxt(ps.map(p=>+p.eid||0),e=>e+'돌'))
-      +ln('전용 광추',id==='aeon_aha'||id==='silverwolf999'?distTxt(ps.map(p=>+p.lc||0),l=>+l?l+'재':'없음'):`<b>${pct(ps.filter(p=>+p.lc>0).length,ps.length)}%</b>`)
+      +ln('전용 광추',id==='aeon_aha'||id==='silverwolf999'?distTxt(ps.map(p=>+p.lc||0),l=>+l?l+'재':'미착용'):`<b>${pct(ps.filter(p=>+p.lc>0).length,ps.length)}%</b>`)
       +ln('장신구',distTxt(orn))+'</div>';}).join('');
   // 돌파 + 광추 조합
   const vb={};rs.forEach(r=>{const key=r._party.slice().sort((a,b)=>cid(a)<cid(b)?-1:1).map(p=>`${cid(p)}#${+p.eid||0}#${+p.lc||0}`).join('|');const v=vb[key]=vb[key]||{n:0,aha:[]};v.n++;if(cyc(r)===mc&&isNum(r._res.aha))v.aha.push(r._res.aha);});
@@ -432,8 +432,8 @@ function detHtml(r){
   // 캐릭터별
   const chars=P.map((p,i)=>{const t=[];const e=p.er||{};
     t.push(`속도 ${isNum(p.spd)?r1(p.spd):'-'}`,`${+p.eid||0}돌`);
-    if(p.key==='aeon_aha'||p.key==='silverwolf999')t.push(+p.lc>0?`전광 ${p.lc}재`:'전광 없음');
-    else if(p.key!=='custom')t.push(+p.lc>0?'전광 착용':'전광 없음');
+    if(p.key==='aeon_aha'||p.key==='silverwolf999')t.push(+p.lc>0?`전광 ${p.lc}재`:'전광 미착용');
+    else if(p.key!=='custom')t.push(+p.lc>0?'전광 착용':'전광 미착용');
     const orn=has(s.orns,p,i)?'환락만상':has(s.vonw,p,i)?'바커공':e.orn?'에너지 회복 장신구':'';if(orn)t.push(orn);
     if(e.rope)t.push('에너지 회복 효율 매듭');
     if(has(s.eagle,p,i))t.push('매 4세트');

@@ -194,7 +194,7 @@ tr.mine td{background:rgba(197,139,255,.08)}
 .pd-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}.pd-lc{text-align:right;font-variant-numeric:tabular-nums}
 .pd-stk{font-size:12px;color:var(--muted);margin:6px 0 0;display:flex;flex-wrap:wrap;gap:2px 10px}.pd-stk b{color:var(--text)}
 .pd-var{width:100%;border-collapse:collapse;font-size:12.5px}.pd-var th{font-size:11.5px;color:var(--muted);text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}
-.pd-var td{padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap;font-weight:700}.pd-var td small{display:block;font-weight:600;color:var(--muted);font-size:11px;margin-top:1px}.pd-var td{padding:6px 4px}
+.pd-var td{padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap;font-weight:700}.pd-var td small{display:block;font-weight:600;color:var(--muted);font-size:11px;margin-top:1px;white-space:normal;word-break:keep-all;line-height:1.25}.pd-var td{padding:6px 3px}.pd-var td:not(.num){white-space:normal}
 .pd-var th,.pd-var td{text-align:center}.pd-var .num{text-align:right}.pd .tbl th:first-child,.pd .tbl td:first-child{background:var(--panel2)}.pd-var tr.me td,.pd-var tr.me td:first-child{background:#3a2f5e}.pd-var tr.me td{background:rgba(197,139,255,.14)}.pd-var tr.me td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .rl-head{margin:10px 0 6px;font-size:13.5px}
 .rl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:7px 8px;margin-bottom:6px}
@@ -203,6 +203,7 @@ tr.mine td{background:rgba(197,139,255,.08)}
 .rl .rl-n{width:46px!important}
 .rl .rl-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px}
 .rl .rl-hit{flex-basis:100%;font-size:11.5px;color:var(--muted)}
+/* v147: 조합 표 전광 없으면 '전광 미착용' */
 /* v146: 계산기 전용 광추 표기도 'N재' */
 /* v145: 통계 표기 '전광 착용' / '전광 N재' */
 /* v144: 조합 표 광추 표기 '전1'·'광' → '1중첩'·'광추' */
@@ -1534,7 +1535,7 @@ function ptDetail(p,ks,cyc,k,mine){
     return on.length?`<div class="pd-stk"><b>${shortName(m.key)} 전광</b> ${on.map(([l,c])=>`<span>${l}재 <b>${Math.round(c/m.n*100)}%</b></span>`).join('')}</div>`:'';}).join('');
   const myVk=mine?mine.map(x=>`${x.key}:${Math.min(6,Math.max(0,+x.eid||0))}:${Math.min(5,Math.max(0,+x.lc||0))}`).sort().join(','):null;
   const vRows=(p.vars||[]).map(v=>{const by=Object.fromEntries(v.vk.split(',').map(t=>{const [key,e,l]=t.split(':');return [key,{e,l}];}));
-    return `<tr class="${v.vk===myVk?'me':''}">${ks.map(key=>{const x=by[key]||{e:'-',l:0};return `<td>${x.e}돌${+x.l?`<small>${key==='aeon_aha'||key==='silverwolf999'?'전광 '+x.l+'재':'전광 착용'}</small>`:''}</td>`;}).join('')}<td class="num"><b>${Math.round(v.n/p.n*100)}%</b></td><td class="num">${v.aha!=null?f1(v.aha)+'회':'-'}</td></tr>`;}).join('');
+    return `<tr class="${v.vk===myVk?'me':''}">${ks.map(key=>{const x=by[key]||{e:'-',l:0};return `<td>${x.e}돌<small>${+x.l?(key==='aeon_aha'||key==='silverwolf999'?'전광 '+x.l+'재':'전광 착용'):'전광 미착용'}</small></td>`;}).join('')}<td class="num"><b>${Math.round(v.n/p.n*100)}%</b></td><td class="num">${v.aha!=null?f1(v.aha)+'회':'-'}</td></tr>`;}).join('');
   const vars=vRows?`<div class="tbl"><table class="pd-var"><tr>${ks.map(key=>`<th>${shortName(key)}</th>`).join('')}<th class="num">비율</th><th class="num">아하</th></tr>${vRows}</table></div>`
     :`<div class="rk-empty" style="margin:0">돌파 + 광추까지 같은 조합이 ${k}명 이상 모이면 보여요.</div>`;
   return `<div class="pd"><div class="pd-h">파티원별 성혼 · 광추 <small>이 파티 안에서의 비율${mine?' · □ 내 성혼':''}</small></div>${heat}${stk}
