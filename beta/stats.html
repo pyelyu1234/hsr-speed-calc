@@ -276,7 +276,7 @@ function filtered(){
 const cid=p=>p.key&&p.key!=='custom'?p.key:'n:'+(p.name||'?');
 const cname=id=>id.startsWith('n:')?id.slice(2):(SHORT[id]||id);
 const cyc=r=>Math.max(1,Math.round(+r._set.cycles)||3);
-const lcTxt=p=>p.key==='aeon_aha'?(+p.lc>0?` · 전${p.lc}`:''):(+p.lc>0?' · 광':'');
+const lcTxt=p=>(p.key==='aeon_aha'||p.key==='silverwolf999')?(+p.lc>0?` · 광추 ${p.lc}중첩`:''):(+p.lc>0?' · 광추':'');
 function mainCycle(rows){const c={};rows.forEach(r=>{if(isNum(r._res.aha))c[cyc(r)]=(c[cyc(r)]||0)+1;});const e=Object.entries(c).sort((a,b)=>b[1]-a[1])[0];return e?+e[0]:3;}
 
 /* ── 그리기 ── */
@@ -360,7 +360,7 @@ function renderChars(){
   ].map(([l,f])=>({label:l,v:cnt(f)})),{max:ps.length,fmt:i=>`<b>${pct(i.v,ps.length)}%</b> ${i.v}`});
 }
 const pkey=r=>r._party.map(cid).sort().join('|');
-const lcShort=(id,l)=>+l>0?(id==='aeon_aha'||id==='silverwolf999'?'전'+l:'광'):'';
+const lcShort=(id,l)=>+l>0?(id==='aeon_aha'||id==='silverwolf999'?l+'중첩':'광추'):'';
 function distTxt(arr,fmt){const c={};arr.forEach(v=>c[v]=(c[v]||0)+1);return Object.entries(c).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${fmt?fmt(k):k} <b>${pct(v,arr.length)}%</b>`).join(' · ');}
 function renderParty(){
   const rows=filtered(),n=rows.length,mc=mainCycle(rows),cb={};
