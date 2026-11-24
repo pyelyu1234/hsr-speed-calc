@@ -349,7 +349,7 @@ function renderChars(){
     ['환락만상',(p,r)=>inSet(r._set.orns,p,r)],
     ['바커공',(p,r)=>inSet(r._set.vonw,p,r)],
     ['에너지 회복 장신구',(p,r)=>!inSet(r._set.orns,p,r)&&!inSet(r._set.vonw,p,r)&&!!(p.er&&p.er.orn)],
-    ['에너지 회복 밧줄',p=>!!(p.er&&p.er.rope)],
+    ['에너지 회복 효율 매듭',p=>!!(p.er&&p.er.rope)],
     ['매 4세트',(p,r)=>inSet(r._set.eagle,p,r)]
   ].map(([l,f])=>({label:l,v:cnt(f)})),{max:ps.length,fmt:i=>`<b>${pct(i.v,ps.length)}%</b> ${i.v}`});
 }
@@ -389,7 +389,7 @@ function detHtml(r){
     else if(p.key==='silverwolf999')t.push(+p.lc>0?`전용 광추 ${p.lc}중첩`:'전용 광추 없음');
     else if(p.key!=='custom')t.push(+p.lc>0?'전용 광추':'전용 광추 없음');
     const orn=has(s.orns,p,i)?'환락만상':has(s.vonw,p,i)?'바커공':e.orn?'에너지 회복 장신구':'';if(orn)t.push(orn);
-    if(e.rope)t.push('에너지 회복 밧줄');
+    if(e.rope)t.push('에너지 회복 효율 매듭');
     if(has(s.eagle,p,i))t.push('매 4세트');
     if(p.key==='aeon_aha')t.push(`전투 스킬 대상: ${tgt(s.wpTarget)}`);
     if(p.key==='pearl')t.push(`필살기 대상: ${tgt(s.pearlTgt)}`,s.pearlTech===false?'비술 안 씀':'비술 사용');
