@@ -181,6 +181,7 @@ tr.pick.on td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
     <section data-sec="party" hidden>
       <div class="card">
         <h2>파티 조합 TOP 10 <span class="note">이름 옆 숫자는 평균 속도</span></h2>
+        <div class="chips" id="pGroup" style="margin:-2px 0 12px"><button class="chip on" data-v="char">캐릭터 구성만 같으면</button><button class="chip" data-v="eid">돌파 + 전용 광추까지 같으면</button></div>
         <div class="list" id="combos"></div>
       </div>
     </section>
@@ -250,7 +251,7 @@ async function fetchAll(){
 }
 
 /* ── 데이터 ── */
-let RAW=[],ALL=[],F={period:'all',mode:'moc',all:false,sec:'sum',ch:null},recentN=20,openRec=null;
+let RAW=[],ALL=[],F={period:'all',mode:'moc',all:false,sec:'sum',ch:null,pg:'char'},recentN=20,openRec=null;
 function prep(rows,all){
   // 기본: 한 사람(session_id)당 콘텐츠별 최신 1건 · 중복 포함: 방문당 최신 1건
   const seen=new Set(),out=[];
@@ -355,12 +356,13 @@ function renderChars(){
 }
 function renderParty(){
   const rows=filtered(),n=rows.length,mc=mainCycle(rows),cb={};
-  rows.forEach(r=>{if(!r._party.length)return;const k=r._party.map(cid).sort().join('|');const c=cb[k]=cb[k]||{n:0,aha:[],spd:{}};c.n++;
+  const byEid=F.pg==='eid',mid=p=>byEid?`${cid(p)}#${+p.eid||0}#${+p.lc||0}`:cid(p); // 돌파 + 전용 광추(중첩)까지 같아야 같은 파티
+  rows.forEach(r=>{if(!r._party.length)return;const k=r._party.map(mid).sort().join('|');const c=cb[k]=cb[k]||{n:0,aha:[],spd:{}};c.n++;
     if(cyc(r)===mc&&isNum(r._res.aha))c.aha.push(r._res.aha);
-    r._party.forEach(p=>{const s=+p.spd;if(isFinite(s)&&s>0)(c.spd[cid(p)]=c.spd[cid(p)]||[]).push(s);});});
+    r._party.forEach(p=>{const s=+p.spd;if(isFinite(s)&&s>0)(c.spd[mid(p)]=c.spd[mid(p)]||[]).push(s);});});
   const ct=Object.entries(cb).sort((a,b)=>b[1].n-a[1].n).slice(0,10);
   $('combos').innerHTML=ct.length?ct.map(([k,c],i)=>`<div class="item"><div class="l1"><span><span class="rank">${i+1}</span><b>${c.n}건</b> <span class="note">${pct(c.n,n)}%</span></span><span class="r">${c.aha.length?`아하 ${r1(avg(c.aha))}회 <span class="note">(${mc}사이클)</span>`:'<span class="note">아하 -</span>'}</span></div>`
-    +memHtml(k.split('|').map(id=>({n:cname(id),s:c.spd[id]?r1(avg(c.spd[id])):'-'})))+'</div>').join(''):'<p class="note" style="margin:0">데이터 없음</p>';
+    +memHtml(k.split('|').map(m=>{const [id,e,l]=m.split('#');const tag=byEid?` <small>${e}돌${+l>0?(id==='aeon_aha'||id==='silverwolf999'?' · 전'+l:' · 광'):''}</small>`:'';return {n:cname(id),s:(c.spd[m]?r1(avg(c.spd[m])):'-')+tag};}))+'</div>').join(''):'<p class="note" style="margin:0">데이터 없음</p>';
 }
 function renderRec(){
   renderSus();
@@ -448,6 +450,7 @@ function tabs(sel,cls,key,after){document.querySelectorAll(sel).forEach(b=>b.onc
 tabs('#fPeriod .chip','on','period',()=>{recentN=20;});
 tabs('#mTabs .mtab','on','mode',()=>{recentN=20;F.ch=null;});
 tabs('#sTabs .stab','on','sec',()=>scrollTo({top:0}));
+tabs('#pGroup .chip','on','pg');
 $('allRec').onchange=e=>{F.all=e.target.checked;ALL=prep(RAW,F.all);recentN=20;render();};
 $('more').onclick=()=>{recentN+=30;renderRec();};
 try{$('exMine').checked=localStorage.getItem('hsrOptOut')==='1';}catch(e){}
