@@ -193,6 +193,7 @@ tr.mine td{background:rgba(197,139,255,.08)}
 .rl .rl-n{width:46px!important}
 .rl .rl-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px}
 .rl .rl-hit{flex-basis:100%;font-size:11.5px;color:var(--muted)}
+/* v138: 에이언즈 필살기 자동 미룸 (아하 턴 직전 +20% 낭비 방지) */
 /* v137: 히아킨 여전사 4세트 — 비술 치유로 전투 시작부터 발동 */
 /* v136: 지원 캐릭터 설정 줄바꿈 정리 (이름 위, 입력칸 아래 전체 폭) */
 [data-suprow]{margin:2px 0 10px 24px!important;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
@@ -681,14 +682,19 @@ function simAll(T,ov){
   function anchorDone(d){if(d.k==='aha')return !!aha&&aha.ev.length>d.n;const c=ck(d.k);return !c||c.n>d.n;}
   function held(s){const p=(state.plan||{})[s.key];if(!p)return false;if(p.hold&&p.hold.includes(s.n))return true;
     const d=p.ud&&p.ud[ultCount[s.key]||0];return !!(d&&!anchorDone(d));} // 드래그로 정한 필살기 시점: 지정한 행동이 끝날 때까지 대기
+  // v138: 아하 턴 직전이면 에이언즈 필살기를 아하 턴 뒤로 미룸 (행동 게이지 +20%가 넘쳐 버려지는 것 방지) · 6돌 첫 필살기(+100%)는 제외
+  let aeonDly=null;
+  function aeonWait(t){if(fx.aeonDelay===false||!aha)return false;
+    if(eidOf(fx,'aeon_aha')>=6&&!marks.some(m=>m.who==='aeon_aha'))return false;
+    if(aha.next-t<0.2*aha.iv-1e-9){if(aeonDly==null)aeonDly=t;return true;}return false;}
   function tryUlts(t){
     if(inUlt)return;inUlt=true;const ctx0=CTX;
     for(let g=0;g<40;g++){let fired=false;
       for(const s of chars){
         if(held(s))continue;
         const k=s.key;CTX=s.u.name+' 필살기';const ml=marks.length;const sb=snap();
-        if(k==='aeon_aha'&&aha&&wp>=8-1e-9){wp-=8;const first=!marks.some(m=>m.who==='aeon_aha');
-          mark(t,'에이언즈 아하 필살기'+(first&&eidOf(fx,'aeon_aha')>=6?' (6돌: 아하 타임 +100%)':''),'aeon_aha',{k:s.n});
+        if(k==='aeon_aha'&&aha&&wp>=8-1e-9&&!aeonWait(t)){wp-=8;const first=!marks.some(m=>m.who==='aeon_aha');
+          mark(t,'에이언즈 아하 필살기'+(first&&eidOf(fx,'aeon_aha')>=6?' (6돌: 아하 타임 +100%)':'')+(aeonDly!=null?` (아하 턴 뒤로 미룸 · ${f1(aeonDly)}에 사용 가능)`:''),'aeon_aha',{k:s.n});aeonDly=null;
           adv(aha,t,20);if(first&&eidOf(fx,'aeon_aha')>=6){adv(aha,t,100);laughGain(100,t);}
           setMan(3,t);attackBy(s,t);if(fx.wpHeal)wp=Math.min(10,wp+1);fired=true;}
         else if(k==='pearl'&&pTgt&&s.E>=180-1e-9){s.E-=180;eGain(s,5);rGain(s,20,t);
@@ -831,6 +837,7 @@ function renderSettings(marks,T){
     let body='';
     if(k==='aeon_aha'){body+=`<label class="f">전투 스킬 대상 <select data-fx="wpTarget" style="width:150px">${tOpts(k,fx.wpTarget,'없음 (일반 공격만)')}</select></label>
       <label class="chk"><input type="checkbox" data-fx="wpHeal"${fx.wpHeal?' checked':''}> 동료 힐·실드 받음 [원력] +1 <span class="note">— 전투 시작·필살기 직후</span></label>
+      <label class="chk"><input type="checkbox" data-fx="aeonDelay"${fx.aeonDelay===false?'':' checked'}> 아하 턴 직전이면 필살기를 아하 턴 뒤로 미룸 <span class="note">— 행동 게이지 +20%가 넘쳐 버려지지 않게</span></label>
       <div class="note">[원력] 8 도달 시 필살기 (최대 10) · 웃음 포인트 40 도달 시 +1 (아하 턴마다 다시 가능)</div>`;}
     if(k==='pearl'){const pe=fx.pearlEntry==null?-1:num(fx.pearlEntry);
       body+=`<label class="f">필살기 대상 <select data-fx="pearlTgt" style="width:150px">${tOpts(k,fx.pearlTgt,'선택 안 함')}</select></label>
