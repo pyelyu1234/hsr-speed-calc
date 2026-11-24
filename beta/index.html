@@ -203,6 +203,7 @@ tr.mine td{background:rgba(197,139,255,.08)}
 .rl .rl-n{width:46px!important}
 .rl .rl-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px}
 .rl .rl-hit{flex-basis:100%;font-size:11.5px;color:var(--muted)}
+/* v146: 계산기 전용 광추 표기도 'N재' */
 /* v145: 통계 표기 '전광 착용' / '전광 N재' */
 /* v144: 조합 표 광추 표기 '전1'·'광' → '1중첩'·'광추' */
 /* v143: 인기 파티 상세를 표로 정리 */
@@ -378,7 +379,7 @@ const num=v=>{const n=parseFloat(v);return isFinite(n)?n:0};
 const f1=n=>(Math.round(n*10)/10).toFixed(1);
 const f2=n=>(Math.round(n*100)/100).toFixed(2);
 function lockArea(el,locked){if(!el)return;el.style.opacity=locked?.45:1;el.style.pointerEvents=locked?'none':'';el.style.userSelect=locked?'none':'';el.querySelectorAll('input,select,button,textarea').forEach(x=>{x.disabled=locked;x.tabIndex=locked?-1:0;});}
-const sigLabel=n=>n?`${n}중첩 (기초 속도 +${SIG_SPD[n]})`:'미착용';
+const sigLabel=n=>n?`${n}재 (기초 속도 +${SIG_SPD[n]})`:'미착용';
 function sigSlider(attr,val,title='전용 광추'){
   return `<div class="sig"><div class="sighead"><span>${title}</span><b class="sigval">${sigLabel(val)}</b></div>
   <input type="range" min="0" max="5" step="1" ${attr} value="${val}">
@@ -468,7 +469,7 @@ function eidOf(fx,k){return parseInt((fx.eid||{})[k])||0;}
 function lcOf(fx,k){return !!(fx.lc||{})[k];}
 function lcS(fx,k){return Math.min(5,Math.max(1,parseInt((fx.lcS||{})[k])||1));}
 const swLcLaugh=fx=>[20,25,30,35,40][lcS(fx,'silverwolf999')-1];
-const swLcLabel=v=>v?`${v}중첩 (웃음 +${[20,25,30,35,40][v-1]})`:'미착용';
+const swLcLabel=v=>v?`${v}재 (웃음 +${[20,25,30,35,40][v-1]})`:'미착용';
 function erOf(fx,k){const e=(fx.er||{})[k]||{};const sl=(active().find(a=>a.key===k)||{}).i;const vw=sl!=null&&(fx.vonw||[]).includes(sl);return 1+(e.rope?ROPE:0)/100+((e.orn||vw)?ORN:0)/100+(k==='yaoguang'&&lcOf(fx,k)?0.12:0)+(k==='evanescia'&&lcOf(fx,k)?0.208:0);}
 const ORDER={pearl:104,yaoguang:116,trailblazer:120,sparxie:144,evanescia:146,waven:156,silverwolf999:999,aeon_aha:99999};
 function planOf(k){if(!state.plan)state.plan={};if(!state.plan[k])state.plan[k]={a:{},hold:[]};const p=state.plan[k];if(!p.a)p.a={};if(!p.hold)p.hold=[];if(!p.ud)p.ud={};return p;}
@@ -1106,8 +1107,8 @@ function ahaInfo(){
   const aeon=cs.find(isAeon);
   const own=state.owned||{has:false,sig:0};
   let base,label;
-  if(aeon){base=baseSpd(aeon);label=sigBonus(aeon)?` (에이언즈 아하 기초 ${num(aeon.base)} + 전용 광추 ${parseInt(aeon.sig)}중첩 ${sigBonus(aeon)})`:' (에이언즈 아하 기초)';}
-  else if(own.has){const b=SIG_SPD[parseInt(own.sig)||0]||0;base=AEON_BASE+b;label=b?` (보유 중인 에이언즈 아하 기초 ${AEON_BASE} + 전용 광추 ${parseInt(own.sig)}중첩 ${b})`:' (보유 중인 에이언즈 아하 기초)';}
+  if(aeon){base=baseSpd(aeon);label=sigBonus(aeon)?` (에이언즈 아하 기초 ${num(aeon.base)} + 전광 ${parseInt(aeon.sig)}재 ${sigBonus(aeon)})`:' (에이언즈 아하 기초)';}
+  else if(own.has){const b=SIG_SPD[parseInt(own.sig)||0]||0;base=AEON_BASE+b;label=b?` (보유 중인 에이언즈 아하 기초 ${AEON_BASE} + 전광 ${parseInt(own.sig)}재 ${b})`:' (보유 중인 에이언즈 아하 기초)';}
   else{base=num(k.ahaBase);label=' (에이언즈 아하 미보유 기본값)';}
   const pool=cs.map(c=>({name:c.name,spd:finalSpd(c)})).sort((a,b)=>b.spd-a.spd);
   const coefs=[num(k.c1),num(k.c2),num(k.c3),num(k.c4)];
