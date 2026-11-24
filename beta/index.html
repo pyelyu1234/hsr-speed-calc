@@ -193,7 +193,7 @@ tr.mine td{background:rgba(197,139,255,.08)}
 .rl .rl-n{width:46px!important}
 .rl .rl-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px}
 .rl .rl-hit{flex-basis:100%;font-size:11.5px;color:var(--muted)}
-/* v138: 에이언즈 필살기 자동 미룸 (아하 턴 직전 +20% 낭비 방지) */
+/* v139: 에이언즈 필살기 낭비 표시 + 미루기 버튼 · 다음 횟수까지 '미루면' 숫자 (자동 미룸은 계산용만) */
 /* v137: 히아킨 여전사 4세트 — 비술 치유로 전투 시작부터 발동 */
 /* v136: 지원 캐릭터 설정 줄바꿈 정리 (이름 위, 입력칸 아래 전체 폭) */
 [data-suprow]{margin:2px 0 10px 24px!important;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
@@ -682,9 +682,9 @@ function simAll(T,ov){
   function anchorDone(d){if(d.k==='aha')return !!aha&&aha.ev.length>d.n;const c=ck(d.k);return !c||c.n>d.n;}
   function held(s){const p=(state.plan||{})[s.key];if(!p)return false;if(p.hold&&p.hold.includes(s.n))return true;
     const d=p.ud&&p.ud[ultCount[s.key]||0];return !!(d&&!anchorDone(d));} // 드래그로 정한 필살기 시점: 지정한 행동이 끝날 때까지 대기
-  // v138: 아하 턴 직전이면 에이언즈 필살기를 아하 턴 뒤로 미룸 (행동 게이지 +20%가 넘쳐 버려지는 것 방지) · 6돌 첫 필살기(+100%)는 제외
+  // v139: 기본은 바로 사용 (행동 순서 표에서 직접 조정) · '다음 횟수까지'의 '필살기 미루면' 계산에서만 아하 턴 직전 필살기를 아하 턴 뒤로 미룸 · 6돌 첫 필살기(+100%)는 제외
   let aeonDly=null;
-  function aeonWait(t){if(fx.aeonDelay===false||!aha)return false;
+  function aeonWait(t){if(!window.__AEON_DELAY||!aha)return false;
     if(eidOf(fx,'aeon_aha')>=6&&!marks.some(m=>m.who==='aeon_aha'))return false;
     if(aha.next-t<0.2*aha.iv-1e-9){if(aeonDly==null)aeonDly=t;return true;}return false;}
   function tryUlts(t){
@@ -694,7 +694,7 @@ function simAll(T,ov){
         if(held(s))continue;
         const k=s.key;CTX=s.u.name+' 필살기';const ml=marks.length;const sb=snap();
         if(k==='aeon_aha'&&aha&&wp>=8-1e-9&&!aeonWait(t)){wp-=8;const first=!marks.some(m=>m.who==='aeon_aha');
-          mark(t,'에이언즈 아하 필살기'+(first&&eidOf(fx,'aeon_aha')>=6?' (6돌: 아하 타임 +100%)':'')+(aeonDly!=null?` (아하 턴 뒤로 미룸 · ${f1(aeonDly)}에 사용 가능)`:''),'aeon_aha',{k:s.n});aeonDly=null;
+          mark(t,'에이언즈 아하 필살기'+(first&&eidOf(fx,'aeon_aha')>=6?' (6돌: 아하 타임 +100%)':'')+(aeonDly!=null?` (아하 턴 뒤로 미룸 · ${f1(aeonDly)}에 사용 가능)`:''),'aeon_aha',{k:s.n,ahaN:aha.ev.length,waste:(first&&eidOf(fx,'aeon_aha')>=6)?0:Math.max(0,0.2*aha.iv-Math.max(0,aha.next-t))});aeonDly=null;
           adv(aha,t,20);if(first&&eidOf(fx,'aeon_aha')>=6){adv(aha,t,100);laughGain(100,t);}
           setMan(3,t);attackBy(s,t);if(fx.wpHeal)wp=Math.min(10,wp+1);fired=true;}
         else if(k==='pearl'&&pTgt&&s.E>=180-1e-9){s.E-=180;eGain(s,5);rGain(s,20,t);
@@ -837,7 +837,6 @@ function renderSettings(marks,T){
     let body='';
     if(k==='aeon_aha'){body+=`<label class="f">전투 스킬 대상 <select data-fx="wpTarget" style="width:150px">${tOpts(k,fx.wpTarget,'없음 (일반 공격만)')}</select></label>
       <label class="chk"><input type="checkbox" data-fx="wpHeal"${fx.wpHeal?' checked':''}> 동료 힐·실드 받음 [원력] +1 <span class="note">— 전투 시작·필살기 직후</span></label>
-      <label class="chk"><input type="checkbox" data-fx="aeonDelay"${fx.aeonDelay===false?'':' checked'}> 아하 턴 직전이면 필살기를 아하 턴 뒤로 미룸 <span class="note">— 행동 게이지 +20%가 넘쳐 버려지지 않게</span></label>
       <div class="note">[원력] 8 도달 시 필살기 (최대 10) · 웃음 포인트 40 도달 시 +1 (아하 턴마다 다시 가능)</div>`;}
     if(k==='pearl'){const pe=fx.pearlEntry==null?-1:num(fx.pearlEntry);
       body+=`<label class="f">필살기 대상 <select data-fx="pearlTgt" style="width:150px">${tOpts(k,fx.pearlTgt,'선택 안 함')}</select></label>
@@ -944,7 +943,7 @@ function renderPlan(T,SIM,sims){
   }else if(PICK&&PICK.ult){const c=active().find(a=>a.key===PICK.ult);
     const um=SIM.marks.find(m=>m.who===PICK.ult&&(PICK.ui!=null?m.ui===PICK.ui:m.k===PICK.k));let ex='';const udSet=um&&(((state.plan||{})[PICK.ult]||{}).ud||{})[um.ui];
     if(um){const i0=SIM.marks.indexOf(um);for(let i=i0+1;i<SIM.marks.length;i++){const m=SIM.marks[i];if(m.t!==um.t||m.k!=null)break;ex+=`<div>· ${m.name}</div>`;}}
-    pick=`<div class="picker"><b>${c?c.name:''} 필살기</b>${um?` <span class="note">${Math.round(um.t)} AV</span>`:''}<div style="width:100%"></div>${um?`<div style="width:100%;font-size:12.5px">${um.name}${ex}</div>`:''}${um&&um.pnote?`<div style="width:100%;font-size:12.5px;color:var(--warn)">${um.pnote}</div>`:''}${um?resHtml(um,um.pnote?'필살기 직전 → 보너스 턴 시작 지급 직후':'필살기 직전 → 직후'):''}${udSet?'<button class="btn" data-unudp>원래 타이밍으로</button> ':''}<button class="btn primary" data-hold>다음 행동 뒤로 미루기</button><div class="note" style="width:100%">⠿ 를 끌어서 원하는 행동 줄 위에 놓으면 그 행동이 끝난 뒤에 필살기를 써요 (게이지가 찼을 때만)</div> <button class="btn" data-close>닫기</button></div>`;}
+    pick=`<div class="picker"><b>${c?c.name:''} 필살기</b>${um?` <span class="note">${Math.round(um.t)} AV</span>`:''}<div style="width:100%"></div>${um?`<div style="width:100%;font-size:12.5px">${um.name}${ex}</div>`:''}${um&&um.pnote?`<div style="width:100%;font-size:12.5px;color:var(--warn)">${um.pnote}</div>`:''}${um?resHtml(um,um.pnote?'필살기 직전 → 보너스 턴 시작 지급 직후':'필살기 직전 → 직후'):''}${um&&!udSet&&um.waste>0.05?`<div style="width:100%;font-size:12.5px;color:var(--warn)">아하 턴 직전이라 행동 게이지 +20% 중 ${f1(um.waste)} AV가 버려져요. 아하 턴 뒤에 쓰면 전부 다음 아하 턴에 적용돼요.</div><button class="btn primary" data-aeondly="${um.ui}|${um.ahaN}">아하 턴 뒤로 미루기</button> `:''}${udSet?'<button class="btn" data-unudp>원래 타이밍으로</button> ':''}<button class="btn primary" data-hold>다음 행동 뒤로 미루기</button><div class="note" style="width:100%">⠿ 를 끌어서 원하는 행동 줄 위에 놓으면 그 행동이 끝난 뒤에 필살기를 써요 (게이지가 찼을 때만)</div> <button class="btn" data-close>닫기</button></div>`;}
   const holds=[];active().forEach(c=>{const p=(state.plan||{})[c.key];if(p&&p.hold)p.hold.forEach(k=>holds.push({c,k}));});
   const nChanged=active().reduce((a,c)=>a+Object.keys(((state.plan||{})[c.key]||{}).a||{}).length,0);
   const uds=[];active().forEach(c=>{const p=(state.plan||{})[c.key];if(p&&p.ud)Object.entries(p.ud).forEach(([ui,d])=>{if(d)uds.push({c,ui:parseInt(ui),d});});});
@@ -968,7 +967,7 @@ function renderPlan(T,SIM,sims){
       const tr=Math.round(it.t),same=lastT===tr;lastT=tr;
       if(it.ult){const ck=it.ult.who,cu=active().find(a=>a.key===ck);const sel=PICK&&PICK.ult===ck&&(PICK.ui!=null?PICK.ui===it.ult.ui:PICK.k===it.ult.k);
         const moved=!!(((state.plan||{})[ck]||{}).ud||{})[it.ult.ui];
-        ordH+=`<div class="q-ult${sel?' sel':''}" data-ult="${ck}|${it.ult.k}|${it.ult.ui}" style="--c:${ULT_COLOR[ck]||'#ffcc66'}"><span class="q-dia"></span><span class="q-ulttx"><b>${SHORT[ck]||(cu?cu.name:'')}</b> 필살기${moved?' <i class="q-tag ch">이동</i>':''}</span><span class="q-t${same?' same':''}">${tr}</span><span class="q-drag" data-drag="${ck}|${it.ult.ui}" aria-label="끌어서 필살기 시점 바꾸기">⠿</span></div>`;
+        ordH+=`<div class="q-ult${sel?' sel':''}" data-ult="${ck}|${it.ult.k}|${it.ult.ui}" style="--c:${ULT_COLOR[ck]||'#ffcc66'}"><span class="q-dia"></span><span class="q-ulttx"><b>${SHORT[ck]||(cu?cu.name:'')}</b> 필살기${moved?' <i class="q-tag ch">이동</i>':''}${!moved&&it.ult.waste>0.05?` <i class="q-tag">+20% 중 ${f1(it.ult.waste)} 낭비</i>`:''}</span><span class="q-t${same?' same':''}">${tr}</span><span class="q-drag" data-drag="${ck}|${it.ult.ui}" aria-label="끌어서 필살기 시점 바꾸기">⠿</span></div>`;
         if(sel)ordH+=`<div class="q-pick">${pick}</div>`;return;}
       no++;const u=it.u,e=it.e,ck=u.id!=='aha'?u.key:'aha';
       const sel=PICK&&PICK.key===ck&&PICK.n===e.n;
@@ -1030,6 +1029,7 @@ function renderPlan(T,SIM,sims){
   box.querySelectorAll('[data-unhold]').forEach(b=>b.onclick=()=>{const [k,n]=b.dataset.unhold.split('|');const p=planOf(k);p.hold=p.hold.filter(v=>v!==parseInt(n));update();});
   const pr=box.querySelector('[data-planreset]');if(pr)pr.onclick=()=>{state.plan={};PICK=null;update();};
   box.querySelectorAll('[data-unud]').forEach(b=>b.onclick=()=>{const [k,ui]=b.dataset.unud.split('|');const p=planOf(k);delete p.ud[parseInt(ui)];update();});
+  const ad=box.querySelector('[data-aeondly]');if(ad)ad.onclick=()=>{const [ui,n]=ad.dataset.aeondly.split('|').map(Number);planOf('aeon_aha').ud[ui]={k:'aha',n};PICK=null;update();};
   const uu=box.querySelector('[data-unudp]');if(uu)uu.onclick=()=>{const p=planOf(PICK.ult);delete p.ud[PICK.ui];PICK=null;update();};
   if(po)po.querySelectorAll('[data-drag]').forEach(h=>h.addEventListener('pointerdown',ev=>{
     ev.preventDefault();ev.stopPropagation();const [k,uiS]=h.dataset.drag.split('|');const ui=parseInt(uiS);
@@ -1178,6 +1178,8 @@ function update(){
     const first=10000/a.spd;
     const cT=countIn(ahaU,a.spd,T), c0=countIn(ahaU,a.spd,FC());
     const nd=needFor(ahaU,cT+1,T), gap=Math.max(0,ceil1(nd)-a.spd);
+    let ndD=nd;if(active().some(isAeon)){window.__AEON_DELAY=true;try{ndD=needFor(ahaU,cT+1,T);}finally{window.__AEON_DELAY=false;}}
+    const gapD=Math.max(0,ceil1(ndD)-a.spd),dlyBetter=isFinite(ndD)&&ceil1(gapD)<ceil1(gap)-1e-9;
     const ahaEv=SIM.ev['aha']||[];
     const inT=ahaEv.filter(e=>e.t<=T+EPS),ex=inT.filter(e=>e.extra).length,exBy={};inT.filter(e=>e.extra).forEach(e=>{const k=(e.src||'보너스').replace('에이언즈 아하 비술','비술');exBy[k]=(exBy[k]||0)+1;});
     const exTxt=Object.entries(exBy).map(([k,v])=>`<span style="white-space:nowrap">${k} <b style="color:var(--text)">${v}회</b></span>`).join(' · ');
@@ -1185,7 +1187,7 @@ function update(){
     st.innerHTML=`
       <div class="stat"><div class="k">아하 타임 속도${anyBuff()?' (버프 후)':''}</div><div class="v" style="color:var(--accent)">${f1(a.spd)}</div><div class="d">AV ${f2(first)}${anyBuff()?` · 버프 전 ${f1(withBuff(false,()=>ahaInfo().spd))}`:''}${(()=>{const ac=active();return ac.some(c=>c.key==='waven')&&ac.length===2&&ac.some(isAeon)?'<br>+ 웨이브 승격: [환락만상] 중 동료 공격 후 +25 · 모든 아군 속도 +15% (순서 계산에 반영)':''})()}</div></div>
       <div class="stat"><div class="k">${n}사이클(${T} AV) 동안 아하 타임</div><div class="v">${cT}회</div><div class="d" style="margin-top:4px">${perCyc}</div>${ex?`<div class="d" style="margin-top:4px">기본 턴 <b style="color:var(--text)">${inT.length-ex}회</b> · ${exTxt}</div>`:''}</div>
-      <div class="stat"><div class="k">다음 횟수까지</div><div class="v">${isFinite(nd)?ceil1(gap).toFixed(1):'-'}</div><div class="d">아하 타임 속도가 이만큼 더 필요${isFinite(nd)&&a.coefs[0]&&a.pool[0]?` · 1위 환락 캐릭터 기준 +${ceil1(gap/a.coefs[0]).toFixed(1)}`:''}</div></div>`;
+      <div class="stat"><div class="k">다음 횟수까지</div><div class="v">${isFinite(nd)?ceil1(gap).toFixed(1):'-'}</div><div class="d">아하 타임 속도가 이만큼 더 필요${dlyBetter?`<br>${gapD<=1e-9?`<b style="color:var(--warn)">에이언즈 필살기를 아하 턴 뒤로 미루면 지금 속도로 가능</b> (행동 순서 표에서 '낭비' 표시된 필살기 → 아하 턴 뒤로 미루기)`:`<b style="color:var(--warn)">에이언즈 필살기를 아하 턴 뒤로 미루면 +${ceil1(gapD).toFixed(1)}</b> (속도 ${ceil1(ndD).toFixed(1)}에서 '낭비' 표시된 필살기를 미루면 돼요)`}`:''}${isFinite(nd)&&a.coefs[0]&&a.pool[0]?` · 1위 환락 캐릭터 기준 +${ceil1(gap/a.coefs[0]).toFixed(1)}`:''}</div></div>`;
     document.getElementById('ahaFormula').textContent='아하 타임 속도 = '+a.parts.join(' + ')+' = '+f2(a.spd);
     SUMBAR={spd:a.spd,cnt:cT,n,gap:isFinite(nd)?ceil1(gap):null};
   }
