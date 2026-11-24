@@ -193,6 +193,7 @@ tr.mine td{background:rgba(197,139,255,.08)}
 .rl .rl-n{width:46px!important}
 .rl .rl-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px}
 .rl .rl-hit{flex-basis:100%;font-size:11.5px;color:var(--muted)}
+/* v140: 은랑 전광 슬라이더를 끄는 중에도 결과 바로 계산 */
 /* v139: 에이언즈 필살기 낭비 표시 + 미루기 버튼 · 다음 횟수까지 '미루면' 숫자 (자동 미룸은 계산용만) */
 /* v137: 히아킨 여전사 4세트 — 비술 치유로 전투 시작부터 발동 */
 /* v136: 지원 캐릭터 설정 줄바꿈 정리 (이름 위, 입력칸 아래 전체 폭) */
@@ -855,6 +856,7 @@ function renderSettings(marks,T){
     body+=`<div data-res="${k}" style="margin-top:6px"></div>`;
     h+=`<div class="stat"><div style="font-weight:700;margin-bottom:4px"><span class="dot" style="background:${COLORS[c.i]}"></span>${c.name}</div>${body}</div>`;
   });
+  if(box.dataset.h!==h&&LIVE_RANGE&&box.contains(LIVE_RANGE))box.dataset.h=h; // 슬라이더를 끄는 중이면 다시 그리지 않음
   if(box.dataset.h!==h){box.innerHTML=`<div class="fxgrid">${h}</div>`;box.dataset.h=h;}
   act.forEach(c=>{const r=box.querySelector(`[data-res="${c.key}"]`);if(!r)return;
     const ms=marks.filter(m=>m.t<=T+EPS&&m.who===c.key);
@@ -872,12 +874,14 @@ function bindSettings(){
     else if(el.dataset.lcs){const f=fx();const v=parseInt(el.value)||0;f.lc=f.lc||{};f.lc[el.dataset.lcs]=v>0;f.lcS=f.lcS||{};if(v>0)f.lcS[el.dataset.lcs]=v;update();}
     else if(el.dataset.eid){const f=fx();f.eid=f.eid||{};f.eid[el.dataset.eid]=parseInt(el.value);update();}
   });
-  box.addEventListener('input',e=>{const el=e.target;if(el.dataset&&el.dataset.lcs!==undefined){const lb=el.closest('.sig')&&el.closest('.sig').querySelector('[data-lcsv]');if(lb)lb.textContent=swLcLabel(parseInt(el.value)||0);return;}if(el.type!=='number')return;
+  box.addEventListener('input',e=>{const el=e.target;if(el.dataset&&el.dataset.lcs!==undefined){const lb=el.closest('.sig')&&el.closest('.sig').querySelector('[data-lcsv]');const v=parseInt(el.value)||0;if(lb)lb.textContent=swLcLabel(v);
+      const f=fx();f.lc=f.lc||{};f.lc[el.dataset.lcs]=v>0;f.lcS=f.lcS||{};if(v>0)f.lcS[el.dataset.lcs]=v;LIVE_RANGE=el;try{update();}finally{LIVE_RANGE=null;}return;} // v140: 끄는 중에도 바로 계산 (슬라이더는 다시 그리지 않음)if(el.type!=='number')return;
     if(el.dataset.fx){fx()[el.dataset.fx]=el.value;update();}
     else if(el.dataset.er){const [k,p]=el.dataset.er.split('|');const f=fx();f.er=f.er||{};f.er[k]=f.er[k]||{};f.er[k][p]=el.value;update();}});
 }
 
 // ===== 행동 선택 수직선 =====
+var LIVE_RANGE=null;
 let PICK=null; // {key, n} 또는 {ult:key, k}
 function resHtml(e,lab){if(!e||!e.post)return '';const a=e.pre||e.post,b=e.post;
   const td='padding:3px 6px;text-align:right;font-variant-numeric:tabular-nums',th='padding:3px 6px;text-align:left;color:#a29dc4;font-weight:400';
