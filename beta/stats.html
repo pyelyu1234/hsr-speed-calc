@@ -360,7 +360,7 @@ function renderChars(){
   ].map(([l,f])=>({label:l,v:cnt(f)})),{max:ps.length,fmt:i=>`<b>${pct(i.v,ps.length)}%</b> ${i.v}`});
 }
 const pkey=r=>r._party.map(cid).sort().join('|');
-const lcShort=(id,l)=>+l>0?(id==='aeon_aha'||id==='silverwolf999'?l+'중첩':'광추'):'';
+const lcShort=(id,l)=>+l>0?(id==='aeon_aha'||id==='silverwolf999'?'광추 '+l+'중첩':'광추'):'';
 function distTxt(arr,fmt){const c={};arr.forEach(v=>c[v]=(c[v]||0)+1);return Object.entries(c).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${fmt?fmt(k):k} <b>${pct(v,arr.length)}%</b>`).join(' · ');}
 function renderParty(){
   const rows=filtered(),n=rows.length,mc=mainCycle(rows),cb={};
