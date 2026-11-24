@@ -193,6 +193,7 @@ tr.mine td{background:rgba(197,139,255,.08)}
 .rl .rl-n{width:46px!important}
 .rl .rl-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px}
 .rl .rl-hit{flex-basis:100%;font-size:11.5px;color:var(--muted)}
+/* v141: 필살기 끌어 옮기기 표시 강화 (떠다니는 표시 · 놓을 줄 강조 · 앞 줄 흐리게 · 옮긴 뒤 반짝임) */
 /* v140: 은랑 전광 슬라이더를 끄는 중에도 결과 바로 계산 */
 /* v139: 에이언즈 필살기 낭비 표시 + 미루기 버튼 · 다음 횟수까지 '미루면' 숫자 (자동 미룸은 계산용만) */
 /* v137: 히아킨 여전사 4세트 — 비술 치유로 전투 시작부터 발동 */
@@ -1002,7 +1003,7 @@ function renderPlan(T,SIM,sims){
   #planOrder .q-main{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.25}
   #planOrder .q-name{font-size:14px;font-weight:600;display:flex;align-items:center;gap:5px}
   #planOrder .q-act{font-size:12px;color:var(--muted)}#planOrder .q-act.fb{color:var(--bad)}
-  #planOrder .q-tag{font-style:normal;font-size:10.5px;font-weight:700;padding:0 6px;border-radius:99px;background:rgba(255,204,102,.15);color:var(--warn)}
+  #planOrder .q-tag{white-space:nowrap;font-style:normal;font-size:10.5px;font-weight:700;padding:0 6px;border-radius:99px;background:rgba(255,204,102,.15);color:var(--warn)}
   #planOrder .q-tag.ch{background:rgba(255,255,255,.1);color:var(--text)}
   #planOrder .q-t{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);min-width:34px;text-align:right}
   #planOrder .q-t.same{color:#5f5a86;font-weight:500}
@@ -1010,7 +1011,19 @@ function renderPlan(T,SIM,sims){
   #planOrder .q-dia{width:11px;height:11px;transform:rotate(45deg);background:var(--c);border-radius:2px;flex:none;margin:0 9px 0 9px}
   #planOrder .q-ulttx{flex:1}#planOrder .q-ulttx b{color:var(--c)}
   #planOrder{position:relative}#planOrder .q-drag{touch-action:none;cursor:grab;color:var(--muted);font-size:18px;line-height:1;padding:4px 2px 4px 10px;user-select:none}
-  #planOrder .q-ult.dragging{opacity:.5}#planOrder .q-dropline{position:absolute;left:10px;right:10px;height:3px;border-radius:2px;background:var(--accent);box-shadow:0 0 6px var(--accent);pointer-events:none;display:none;z-index:3}
+  #planOrder .q-ult.dragging{opacity:.35;outline:2px dashed var(--c);outline-offset:-3px;border-radius:8px}
+  #planOrder .q-dropline{position:absolute;left:8px;right:8px;height:4px;border-radius:2px;background:var(--accent);box-shadow:0 0 10px var(--accent);pointer-events:none;display:none;z-index:3}
+  #planOrder .q-dropline::after{content:attr(data-l);position:absolute;right:0;top:-11px;background:var(--accent);color:#14111f;font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap}
+  #planOrder .q-dropline.bad{background:var(--bad);box-shadow:0 0 10px var(--bad)}#planOrder .q-dropline.bad::after{background:var(--bad)}
+  #planOrder.dragmode .q-row{transition:opacity .12s}
+  #planOrder.dragmode .q-row.nodrop{opacity:.3}
+  #planOrder .q-row.droptgt{background:rgba(197,139,255,.16);box-shadow:inset 3px 0 0 var(--accent)}
+  #planOrder .q-row.droptgt.bad{background:rgba(255,138,138,.12);box-shadow:inset 3px 0 0 var(--bad)}
+  #planOrder .q-drag{border:1px solid var(--line);border-radius:8px;padding:3px 8px!important;background:var(--panel2)}
+  #planOrder .q-ult.flash{animation:qflash 1.6s ease-out}
+  @keyframes qflash{0%,30%{background:rgba(197,139,255,.35)}100%{background:transparent}}
+  .q-ghost{position:fixed;z-index:50;pointer-events:none;transform:translate(-50%,-100%);background:var(--bg);border:2px solid var(--c);border-radius:12px;padding:7px 12px;font-size:13px;font-weight:700;color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.55);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+  .q-ghost b{color:var(--c)}.q-ghost small{display:block;font-weight:600;color:var(--muted);font-size:11.5px}.q-ghost.bad{border-color:var(--bad)}.q-ghost.bad small{color:var(--bad)}
   #planOrder .q-pick{padding:0 12px 8px}#planOrder .q-pick .picker{margin-top:2px;background:var(--bg)}
   </style>`;
   const viewBtns=`<div style="margin-bottom:8px"><button class="btn${view==='order'?' primary':''}" data-view="order">순서대로 보기</button> <button class="btn${view==='lane'?' primary':''}" data-view="lane">캐릭터별 시간축</button></div>`;
@@ -1039,14 +1052,27 @@ function renderPlan(T,SIM,sims){
     ev.preventDefault();ev.stopPropagation();const [k,uiS]=h.dataset.drag.split('|');const ui=parseInt(uiS);
     const row=h.closest('.q-ult');row.classList.add('dragging');const line=document.createElement('div');line.className='q-dropline';po.appendChild(line);
     try{h.setPointerCapture(ev.pointerId);}catch(e){}
-    let target=null,moved=false,lx=ev.clientX,ly=ev.clientY,raf=0;
-    const pickAt=(x,y)=>{const el=document.elementFromPoint(x,y);const r=el&&el.closest?el.closest('.q-row'):null;target=r&&po.contains(r)?r:null;
-      if(target){const rr=target.getBoundingClientRect(),pr2=po.getBoundingClientRect();line.style.top=(rr.bottom-pr2.top+po.scrollTop-1)+'px';line.style.display='block';}else line.style.display='none';};
+    let target=null,bad=false,moved=false,lx=ev.clientX,ly=ev.clientY,raf=0;
+    // v141: 끄는 동안 떠다니는 표시 · 놓을 줄 강조 · 원래 시점보다 앞 줄은 흐리게(옮길 수 없음)
+    po.classList.add('dragmode');const rows=[...po.querySelectorAll('.q-row')];rows.forEach(r=>{if(r.compareDocumentPosition(row)&Node.DOCUMENT_POSITION_FOLLOWING)r.classList.add('nodrop');});
+    const ultNm=(row.querySelector('.q-ulttx b')||{}).textContent||'';const ghost=document.createElement('div');ghost.className='q-ghost';ghost.style.setProperty('--c',getComputedStyle(row).getPropertyValue('--c'));document.body.appendChild(ghost);
+    const actNm=r=>{const [tk,tn]=r.dataset.act.split('|');return tk==='aha'?`아하 타임 ${+tn+1}번째`:`${SHORT[tk]||tk} ${+tn+1}번째 행동`;};
+    const setGhost=()=>{ghost.style.left=lx+'px';ghost.style.top=(ly-28)+'px';ghost.classList.toggle('bad',bad);
+      ghost.innerHTML=`◆ <b>${ultNm}</b> 필살기<small>${target?(bad?'원래 시점보다 앞으로는 못 옮겨요':esc0(actNm(target))+' 끝난 뒤에 사용'):'놓을 행동 줄 위로 끌어 주세요'}</small>`;};
+    const esc0=t=>String(t).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    try{if(navigator.vibrate)navigator.vibrate(12);}catch(e){}
+    const pickAt=(x,y)=>{const el=document.elementFromPoint(x,y);const r=el&&el.closest?el.closest('.q-row'):null;const nt=r&&po.contains(r)?r:null;
+      if(target&&target!==nt)target.classList.remove('droptgt','bad');target=nt;bad=!!(target&&target.classList.contains('nodrop'));
+      if(target){target.classList.add('droptgt');target.classList.toggle('bad',bad);const rr=target.getBoundingClientRect(),pr2=po.getBoundingClientRect();line.style.top=(rr.bottom-pr2.top+po.scrollTop-2)+'px';line.style.display='block';line.classList.toggle('bad',bad);line.dataset.l=bad?'못 옮김':'여기서 사용';}else line.style.display='none';
+      setGhost();};
+    setGhost();
     const tick=()=>{const r=po.getBoundingClientRect();const d=ly<r.top+48?-10:ly>r.bottom-48?10:0;if(d&&moved){po.scrollTop+=d;pickAt(lx,ly);}raf=requestAnimationFrame(tick);};
     const mv=e=>{moved=true;lx=e.clientX;ly=e.clientY;pickAt(lx,ly);};
-    const up=()=>{h.removeEventListener('pointermove',mv);h.removeEventListener('pointerup',up);h.removeEventListener('pointercancel',up);cancelAnimationFrame(raf);line.remove();row.classList.remove('dragging');
+    const up=()=>{h.removeEventListener('pointermove',mv);h.removeEventListener('pointerup',up);h.removeEventListener('pointercancel',up);cancelAnimationFrame(raf);line.remove();ghost.remove();row.classList.remove('dragging');
+      po.classList.remove('dragmode');rows.forEach(r=>r.classList.remove('nodrop','droptgt','bad'));
       window.__dragJust=Date.now();
-      if(moved&&target){const [tk,tn]=target.dataset.act.split('|');const p=planOf(k);p.ud[ui]={k:tk,n:parseInt(tn)};PICK=null;update();}};
+      if(moved&&target&&!bad){const [tk,tn]=target.dataset.act.split('|');const p=planOf(k);p.ud[ui]={k:tk,n:parseInt(tn)};PICK=null;update();
+        const nr=document.querySelector(`#planOrder .q-ult[data-ult^="${k}|"][data-ult$="|${ui}"]`);if(nr){nr.classList.add("flash");const po2=document.getElementById("planOrder")||po,pr=po2.getBoundingClientRect(),rr=nr.getBoundingClientRect();if(rr.top<pr.top||rr.bottom>pr.bottom)po2.scrollTop+=rr.top-pr.top-pr.height/2;}}};
     h.addEventListener('pointermove',mv);h.addEventListener('pointerup',up);h.addEventListener('pointercancel',up);raf=requestAnimationFrame(tick);}));
 }
 
