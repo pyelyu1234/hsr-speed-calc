@@ -193,6 +193,9 @@ tr.mine td{background:rgba(197,139,255,.08)}
 .rl .rl-n{width:46px!important}
 .rl .rl-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px}
 .rl .rl-hit{flex-basis:100%;font-size:11.5px;color:var(--muted)}
+/* v141: 필살기 끌어 옮기기 표시 강화 (떠다니는 표시 · 놓을 줄 강조 · 앞 줄 흐리게 · 옮긴 뒤 반짝임) */
+/* v140: 은랑 전광 슬라이더를 끄는 중에도 결과 바로 계산 */
+/* v139: 에이언즈 필살기 낭비 표시 + 미루기 버튼 · 다음 횟수까지 '미루면' 숫자 (자동 미룸은 계산용만) */
 /* v137: 히아킨 여전사 4세트 — 비술 치유로 전투 시작부터 발동 */
 /* v136: 지원 캐릭터 설정 줄바꿈 정리 (이름 위, 입력칸 아래 전체 폭) */
 [data-suprow]{margin:2px 0 10px 24px!important;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
@@ -681,14 +684,19 @@ function simAll(T,ov){
   function anchorDone(d){if(d.k==='aha')return !!aha&&aha.ev.length>d.n;const c=ck(d.k);return !c||c.n>d.n;}
   function held(s){const p=(state.plan||{})[s.key];if(!p)return false;if(p.hold&&p.hold.includes(s.n))return true;
     const d=p.ud&&p.ud[ultCount[s.key]||0];return !!(d&&!anchorDone(d));} // 드래그로 정한 필살기 시점: 지정한 행동이 끝날 때까지 대기
+  // v139: 기본은 바로 사용 (행동 순서 표에서 직접 조정) · '다음 횟수까지'의 '필살기 미루면' 계산에서만 아하 턴 직전 필살기를 아하 턴 뒤로 미룸 · 6돌 첫 필살기(+100%)는 제외
+  let aeonDly=null;
+  function aeonWait(t){if(!window.__AEON_DELAY||!aha)return false;
+    if(eidOf(fx,'aeon_aha')>=6&&!marks.some(m=>m.who==='aeon_aha'))return false;
+    if(aha.next-t<0.2*aha.iv-1e-9){if(aeonDly==null)aeonDly=t;return true;}return false;}
   function tryUlts(t){
     if(inUlt)return;inUlt=true;const ctx0=CTX;
     for(let g=0;g<40;g++){let fired=false;
       for(const s of chars){
         if(held(s))continue;
         const k=s.key;CTX=s.u.name+' 필살기';const ml=marks.length;const sb=snap();
-        if(k==='aeon_aha'&&aha&&wp>=8-1e-9){wp-=8;const first=!marks.some(m=>m.who==='aeon_aha');
-          mark(t,'에이언즈 아하 필살기'+(first&&eidOf(fx,'aeon_aha')>=6?' (6돌: 아하 타임 +100%)':''),'aeon_aha',{k:s.n});
+        if(k==='aeon_aha'&&aha&&wp>=8-1e-9&&!aeonWait(t)){wp-=8;const first=!marks.some(m=>m.who==='aeon_aha');
+          mark(t,'에이언즈 아하 필살기'+(first&&eidOf(fx,'aeon_aha')>=6?' (6돌: 아하 타임 +100%)':'')+(aeonDly!=null?` (아하 턴 뒤로 미룸 · ${f1(aeonDly)}에 사용 가능)`:''),'aeon_aha',{k:s.n,ahaN:aha.ev.length,waste:(first&&eidOf(fx,'aeon_aha')>=6)?0:Math.max(0,0.2*aha.iv-Math.max(0,aha.next-t))});aeonDly=null;
           adv(aha,t,20);if(first&&eidOf(fx,'aeon_aha')>=6){adv(aha,t,100);laughGain(100,t);}
           setMan(3,t);attackBy(s,t);if(fx.wpHeal)wp=Math.min(10,wp+1);fired=true;}
         else if(k==='pearl'&&pTgt&&s.E>=180-1e-9){s.E-=180;eGain(s,5);rGain(s,20,t);
@@ -849,6 +857,7 @@ function renderSettings(marks,T){
     body+=`<div data-res="${k}" style="margin-top:6px"></div>`;
     h+=`<div class="stat"><div style="font-weight:700;margin-bottom:4px"><span class="dot" style="background:${COLORS[c.i]}"></span>${c.name}</div>${body}</div>`;
   });
+  if(box.dataset.h!==h&&LIVE_RANGE&&box.contains(LIVE_RANGE))box.dataset.h=h; // 슬라이더를 끄는 중이면 다시 그리지 않음
   if(box.dataset.h!==h){box.innerHTML=`<div class="fxgrid">${h}</div>`;box.dataset.h=h;}
   act.forEach(c=>{const r=box.querySelector(`[data-res="${c.key}"]`);if(!r)return;
     const ms=marks.filter(m=>m.t<=T+EPS&&m.who===c.key);
@@ -866,12 +875,14 @@ function bindSettings(){
     else if(el.dataset.lcs){const f=fx();const v=parseInt(el.value)||0;f.lc=f.lc||{};f.lc[el.dataset.lcs]=v>0;f.lcS=f.lcS||{};if(v>0)f.lcS[el.dataset.lcs]=v;update();}
     else if(el.dataset.eid){const f=fx();f.eid=f.eid||{};f.eid[el.dataset.eid]=parseInt(el.value);update();}
   });
-  box.addEventListener('input',e=>{const el=e.target;if(el.dataset&&el.dataset.lcs!==undefined){const lb=el.closest('.sig')&&el.closest('.sig').querySelector('[data-lcsv]');if(lb)lb.textContent=swLcLabel(parseInt(el.value)||0);return;}if(el.type!=='number')return;
+  box.addEventListener('input',e=>{const el=e.target;if(el.dataset&&el.dataset.lcs!==undefined){const lb=el.closest('.sig')&&el.closest('.sig').querySelector('[data-lcsv]');const v=parseInt(el.value)||0;if(lb)lb.textContent=swLcLabel(v);
+      const f=fx();f.lc=f.lc||{};f.lc[el.dataset.lcs]=v>0;f.lcS=f.lcS||{};if(v>0)f.lcS[el.dataset.lcs]=v;LIVE_RANGE=el;try{update();}finally{LIVE_RANGE=null;}return;} // v140: 끄는 중에도 바로 계산 (슬라이더는 다시 그리지 않음)if(el.type!=='number')return;
     if(el.dataset.fx){fx()[el.dataset.fx]=el.value;update();}
     else if(el.dataset.er){const [k,p]=el.dataset.er.split('|');const f=fx();f.er=f.er||{};f.er[k]=f.er[k]||{};f.er[k][p]=el.value;update();}});
 }
 
 // ===== 행동 선택 수직선 =====
+var LIVE_RANGE=null;
 let PICK=null; // {key, n} 또는 {ult:key, k}
 function resHtml(e,lab){if(!e||!e.post)return '';const a=e.pre||e.post,b=e.post;
   const td='padding:3px 6px;text-align:right;font-variant-numeric:tabular-nums',th='padding:3px 6px;text-align:left;color:#a29dc4;font-weight:400';
@@ -937,7 +948,7 @@ function renderPlan(T,SIM,sims){
   }else if(PICK&&PICK.ult){const c=active().find(a=>a.key===PICK.ult);
     const um=SIM.marks.find(m=>m.who===PICK.ult&&(PICK.ui!=null?m.ui===PICK.ui:m.k===PICK.k));let ex='';const udSet=um&&(((state.plan||{})[PICK.ult]||{}).ud||{})[um.ui];
     if(um){const i0=SIM.marks.indexOf(um);for(let i=i0+1;i<SIM.marks.length;i++){const m=SIM.marks[i];if(m.t!==um.t||m.k!=null)break;ex+=`<div>· ${m.name}</div>`;}}
-    pick=`<div class="picker"><b>${c?c.name:''} 필살기</b>${um?` <span class="note">${Math.round(um.t)} AV</span>`:''}<div style="width:100%"></div>${um?`<div style="width:100%;font-size:12.5px">${um.name}${ex}</div>`:''}${um&&um.pnote?`<div style="width:100%;font-size:12.5px;color:var(--warn)">${um.pnote}</div>`:''}${um?resHtml(um,um.pnote?'필살기 직전 → 보너스 턴 시작 지급 직후':'필살기 직전 → 직후'):''}${udSet?'<button class="btn" data-unudp>원래 타이밍으로</button> ':''}<button class="btn primary" data-hold>다음 행동 뒤로 미루기</button><div class="note" style="width:100%">⠿ 를 끌어서 원하는 행동 줄 위에 놓으면 그 행동이 끝난 뒤에 필살기를 써요 (게이지가 찼을 때만)</div> <button class="btn" data-close>닫기</button></div>`;}
+    pick=`<div class="picker"><b>${c?c.name:''} 필살기</b>${um?` <span class="note">${Math.round(um.t)} AV</span>`:''}<div style="width:100%"></div>${um?`<div style="width:100%;font-size:12.5px">${um.name}${ex}</div>`:''}${um&&um.pnote?`<div style="width:100%;font-size:12.5px;color:var(--warn)">${um.pnote}</div>`:''}${um?resHtml(um,um.pnote?'필살기 직전 → 보너스 턴 시작 지급 직후':'필살기 직전 → 직후'):''}${um&&!udSet&&um.waste>0.05?`<div style="width:100%;font-size:12.5px;color:var(--warn)">아하 턴 직전이라 행동 게이지 +20% 중 ${f1(um.waste)} AV가 버려져요. 아하 턴 뒤에 쓰면 전부 다음 아하 턴에 적용돼요.</div><button class="btn primary" data-aeondly="${um.ui}|${um.ahaN}">아하 턴 뒤로 미루기</button> `:''}${udSet?'<button class="btn" data-unudp>원래 타이밍으로</button> ':''}<button class="btn primary" data-hold>다음 행동 뒤로 미루기</button><div class="note" style="width:100%">⠿ 를 끌어서 원하는 행동 줄 위에 놓으면 그 행동이 끝난 뒤에 필살기를 써요 (게이지가 찼을 때만)</div> <button class="btn" data-close>닫기</button></div>`;}
   const holds=[];active().forEach(c=>{const p=(state.plan||{})[c.key];if(p&&p.hold)p.hold.forEach(k=>holds.push({c,k}));});
   const nChanged=active().reduce((a,c)=>a+Object.keys(((state.plan||{})[c.key]||{}).a||{}).length,0);
   const uds=[];active().forEach(c=>{const p=(state.plan||{})[c.key];if(p&&p.ud)Object.entries(p.ud).forEach(([ui,d])=>{if(d)uds.push({c,ui:parseInt(ui),d});});});
@@ -961,7 +972,7 @@ function renderPlan(T,SIM,sims){
       const tr=Math.round(it.t),same=lastT===tr;lastT=tr;
       if(it.ult){const ck=it.ult.who,cu=active().find(a=>a.key===ck);const sel=PICK&&PICK.ult===ck&&(PICK.ui!=null?PICK.ui===it.ult.ui:PICK.k===it.ult.k);
         const moved=!!(((state.plan||{})[ck]||{}).ud||{})[it.ult.ui];
-        ordH+=`<div class="q-ult${sel?' sel':''}" data-ult="${ck}|${it.ult.k}|${it.ult.ui}" style="--c:${ULT_COLOR[ck]||'#ffcc66'}"><span class="q-dia"></span><span class="q-ulttx"><b>${SHORT[ck]||(cu?cu.name:'')}</b> 필살기${moved?' <i class="q-tag ch">이동</i>':''}</span><span class="q-t${same?' same':''}">${tr}</span><span class="q-drag" data-drag="${ck}|${it.ult.ui}" aria-label="끌어서 필살기 시점 바꾸기">⠿</span></div>`;
+        ordH+=`<div class="q-ult${sel?' sel':''}" data-ult="${ck}|${it.ult.k}|${it.ult.ui}" style="--c:${ULT_COLOR[ck]||'#ffcc66'}"><span class="q-dia"></span><span class="q-ulttx"><b>${SHORT[ck]||(cu?cu.name:'')}</b> 필살기${moved?' <i class="q-tag ch">이동</i>':''}${!moved&&it.ult.waste>0.05?` <i class="q-tag">+20% 중 ${f1(it.ult.waste)} 낭비</i>`:''}</span><span class="q-t${same?' same':''}">${tr}</span><span class="q-drag" data-drag="${ck}|${it.ult.ui}" aria-label="끌어서 필살기 시점 바꾸기">⠿</span></div>`;
         if(sel)ordH+=`<div class="q-pick">${pick}</div>`;return;}
       no++;const u=it.u,e=it.e,ck=u.id!=='aha'?u.key:'aha';
       const sel=PICK&&PICK.key===ck&&PICK.n===e.n;
@@ -992,7 +1003,7 @@ function renderPlan(T,SIM,sims){
   #planOrder .q-main{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.25}
   #planOrder .q-name{font-size:14px;font-weight:600;display:flex;align-items:center;gap:5px}
   #planOrder .q-act{font-size:12px;color:var(--muted)}#planOrder .q-act.fb{color:var(--bad)}
-  #planOrder .q-tag{font-style:normal;font-size:10.5px;font-weight:700;padding:0 6px;border-radius:99px;background:rgba(255,204,102,.15);color:var(--warn)}
+  #planOrder .q-tag{white-space:nowrap;font-style:normal;font-size:10.5px;font-weight:700;padding:0 6px;border-radius:99px;background:rgba(255,204,102,.15);color:var(--warn)}
   #planOrder .q-tag.ch{background:rgba(255,255,255,.1);color:var(--text)}
   #planOrder .q-t{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);min-width:34px;text-align:right}
   #planOrder .q-t.same{color:#5f5a86;font-weight:500}
@@ -1000,7 +1011,19 @@ function renderPlan(T,SIM,sims){
   #planOrder .q-dia{width:11px;height:11px;transform:rotate(45deg);background:var(--c);border-radius:2px;flex:none;margin:0 9px 0 9px}
   #planOrder .q-ulttx{flex:1}#planOrder .q-ulttx b{color:var(--c)}
   #planOrder{position:relative}#planOrder .q-drag{touch-action:none;cursor:grab;color:var(--muted);font-size:18px;line-height:1;padding:4px 2px 4px 10px;user-select:none}
-  #planOrder .q-ult.dragging{opacity:.5}#planOrder .q-dropline{position:absolute;left:10px;right:10px;height:3px;border-radius:2px;background:var(--accent);box-shadow:0 0 6px var(--accent);pointer-events:none;display:none;z-index:3}
+  #planOrder .q-ult.dragging{opacity:.35;outline:2px dashed var(--c);outline-offset:-3px;border-radius:8px}
+  #planOrder .q-dropline{position:absolute;left:8px;right:8px;height:4px;border-radius:2px;background:var(--accent);box-shadow:0 0 10px var(--accent);pointer-events:none;display:none;z-index:3}
+  #planOrder .q-dropline::after{content:attr(data-l);position:absolute;right:0;top:-11px;background:var(--accent);color:#14111f;font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap}
+  #planOrder .q-dropline.bad{background:var(--bad);box-shadow:0 0 10px var(--bad)}#planOrder .q-dropline.bad::after{background:var(--bad)}
+  #planOrder.dragmode .q-row{transition:opacity .12s}
+  #planOrder.dragmode .q-row.nodrop{opacity:.3}
+  #planOrder .q-row.droptgt{background:rgba(197,139,255,.16);box-shadow:inset 3px 0 0 var(--accent)}
+  #planOrder .q-row.droptgt.bad{background:rgba(255,138,138,.12);box-shadow:inset 3px 0 0 var(--bad)}
+  #planOrder .q-drag{border:1px solid var(--line);border-radius:8px;padding:3px 8px!important;background:var(--panel2)}
+  #planOrder .q-ult.flash{animation:qflash 1.6s ease-out}
+  @keyframes qflash{0%,30%{background:rgba(197,139,255,.35)}100%{background:transparent}}
+  .q-ghost{position:fixed;z-index:50;pointer-events:none;transform:translate(-50%,-100%);background:var(--bg);border:2px solid var(--c);border-radius:12px;padding:7px 12px;font-size:13px;font-weight:700;color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.55);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+  .q-ghost b{color:var(--c)}.q-ghost small{display:block;font-weight:600;color:var(--muted);font-size:11.5px}.q-ghost.bad{border-color:var(--bad)}.q-ghost.bad small{color:var(--bad)}
   #planOrder .q-pick{padding:0 12px 8px}#planOrder .q-pick .picker{margin-top:2px;background:var(--bg)}
   </style>`;
   const viewBtns=`<div style="margin-bottom:8px"><button class="btn${view==='order'?' primary':''}" data-view="order">순서대로 보기</button> <button class="btn${view==='lane'?' primary':''}" data-view="lane">캐릭터별 시간축</button></div>`;
@@ -1023,19 +1046,33 @@ function renderPlan(T,SIM,sims){
   box.querySelectorAll('[data-unhold]').forEach(b=>b.onclick=()=>{const [k,n]=b.dataset.unhold.split('|');const p=planOf(k);p.hold=p.hold.filter(v=>v!==parseInt(n));update();});
   const pr=box.querySelector('[data-planreset]');if(pr)pr.onclick=()=>{state.plan={};PICK=null;update();};
   box.querySelectorAll('[data-unud]').forEach(b=>b.onclick=()=>{const [k,ui]=b.dataset.unud.split('|');const p=planOf(k);delete p.ud[parseInt(ui)];update();});
+  const ad=box.querySelector('[data-aeondly]');if(ad)ad.onclick=()=>{const [ui,n]=ad.dataset.aeondly.split('|').map(Number);planOf('aeon_aha').ud[ui]={k:'aha',n};PICK=null;update();};
   const uu=box.querySelector('[data-unudp]');if(uu)uu.onclick=()=>{const p=planOf(PICK.ult);delete p.ud[PICK.ui];PICK=null;update();};
   if(po)po.querySelectorAll('[data-drag]').forEach(h=>h.addEventListener('pointerdown',ev=>{
     ev.preventDefault();ev.stopPropagation();const [k,uiS]=h.dataset.drag.split('|');const ui=parseInt(uiS);
     const row=h.closest('.q-ult');row.classList.add('dragging');const line=document.createElement('div');line.className='q-dropline';po.appendChild(line);
     try{h.setPointerCapture(ev.pointerId);}catch(e){}
-    let target=null,moved=false,lx=ev.clientX,ly=ev.clientY,raf=0;
-    const pickAt=(x,y)=>{const el=document.elementFromPoint(x,y);const r=el&&el.closest?el.closest('.q-row'):null;target=r&&po.contains(r)?r:null;
-      if(target){const rr=target.getBoundingClientRect(),pr2=po.getBoundingClientRect();line.style.top=(rr.bottom-pr2.top+po.scrollTop-1)+'px';line.style.display='block';}else line.style.display='none';};
+    let target=null,bad=false,moved=false,lx=ev.clientX,ly=ev.clientY,raf=0;
+    // v141: 끄는 동안 떠다니는 표시 · 놓을 줄 강조 · 원래 시점보다 앞 줄은 흐리게(옮길 수 없음)
+    po.classList.add('dragmode');const rows=[...po.querySelectorAll('.q-row')];rows.forEach(r=>{if(r.compareDocumentPosition(row)&Node.DOCUMENT_POSITION_FOLLOWING)r.classList.add('nodrop');});
+    const ultNm=(row.querySelector('.q-ulttx b')||{}).textContent||'';const ghost=document.createElement('div');ghost.className='q-ghost';ghost.style.setProperty('--c',getComputedStyle(row).getPropertyValue('--c'));document.body.appendChild(ghost);
+    const actNm=r=>{const [tk,tn]=r.dataset.act.split('|');return tk==='aha'?`아하 타임 ${+tn+1}번째`:`${SHORT[tk]||tk} ${+tn+1}번째 행동`;};
+    const setGhost=()=>{ghost.style.left=lx+'px';ghost.style.top=(ly-28)+'px';ghost.classList.toggle('bad',bad);
+      ghost.innerHTML=`◆ <b>${ultNm}</b> 필살기<small>${target?(bad?'원래 시점보다 앞으로는 못 옮겨요':esc0(actNm(target))+' 끝난 뒤에 사용'):'놓을 행동 줄 위로 끌어 주세요'}</small>`;};
+    const esc0=t=>String(t).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    try{if(navigator.vibrate)navigator.vibrate(12);}catch(e){}
+    const pickAt=(x,y)=>{const el=document.elementFromPoint(x,y);const r=el&&el.closest?el.closest('.q-row'):null;const nt=r&&po.contains(r)?r:null;
+      if(target&&target!==nt)target.classList.remove('droptgt','bad');target=nt;bad=!!(target&&target.classList.contains('nodrop'));
+      if(target){target.classList.add('droptgt');target.classList.toggle('bad',bad);const rr=target.getBoundingClientRect(),pr2=po.getBoundingClientRect();line.style.top=(rr.bottom-pr2.top+po.scrollTop-2)+'px';line.style.display='block';line.classList.toggle('bad',bad);line.dataset.l=bad?'못 옮김':'여기서 사용';}else line.style.display='none';
+      setGhost();};
+    setGhost();
     const tick=()=>{const r=po.getBoundingClientRect();const d=ly<r.top+48?-10:ly>r.bottom-48?10:0;if(d&&moved){po.scrollTop+=d;pickAt(lx,ly);}raf=requestAnimationFrame(tick);};
     const mv=e=>{moved=true;lx=e.clientX;ly=e.clientY;pickAt(lx,ly);};
-    const up=()=>{h.removeEventListener('pointermove',mv);h.removeEventListener('pointerup',up);h.removeEventListener('pointercancel',up);cancelAnimationFrame(raf);line.remove();row.classList.remove('dragging');
+    const up=()=>{h.removeEventListener('pointermove',mv);h.removeEventListener('pointerup',up);h.removeEventListener('pointercancel',up);cancelAnimationFrame(raf);line.remove();ghost.remove();row.classList.remove('dragging');
+      po.classList.remove('dragmode');rows.forEach(r=>r.classList.remove('nodrop','droptgt','bad'));
       window.__dragJust=Date.now();
-      if(moved&&target){const [tk,tn]=target.dataset.act.split('|');const p=planOf(k);p.ud[ui]={k:tk,n:parseInt(tn)};PICK=null;update();}};
+      if(moved&&target&&!bad){const [tk,tn]=target.dataset.act.split('|');const p=planOf(k);p.ud[ui]={k:tk,n:parseInt(tn)};PICK=null;update();
+        const nr=document.querySelector(`#planOrder .q-ult[data-ult^="${k}|"][data-ult$="|${ui}"]`);if(nr){nr.classList.add("flash");const po2=document.getElementById("planOrder")||po,pr=po2.getBoundingClientRect(),rr=nr.getBoundingClientRect();if(rr.top<pr.top||rr.bottom>pr.bottom)po2.scrollTop+=rr.top-pr.top-pr.height/2;}}};
     h.addEventListener('pointermove',mv);h.addEventListener('pointerup',up);h.addEventListener('pointercancel',up);raf=requestAnimationFrame(tick);}));
 }
 
@@ -1171,6 +1208,8 @@ function update(){
     const first=10000/a.spd;
     const cT=countIn(ahaU,a.spd,T), c0=countIn(ahaU,a.spd,FC());
     const nd=needFor(ahaU,cT+1,T), gap=Math.max(0,ceil1(nd)-a.spd);
+    let ndD=nd;if(active().some(isAeon)){window.__AEON_DELAY=true;try{ndD=needFor(ahaU,cT+1,T);}finally{window.__AEON_DELAY=false;}}
+    const gapD=Math.max(0,ceil1(ndD)-a.spd),dlyBetter=isFinite(ndD)&&ceil1(gapD)<ceil1(gap)-1e-9;
     const ahaEv=SIM.ev['aha']||[];
     const inT=ahaEv.filter(e=>e.t<=T+EPS),ex=inT.filter(e=>e.extra).length,exBy={};inT.filter(e=>e.extra).forEach(e=>{const k=(e.src||'보너스').replace('에이언즈 아하 비술','비술');exBy[k]=(exBy[k]||0)+1;});
     const exTxt=Object.entries(exBy).map(([k,v])=>`<span style="white-space:nowrap">${k} <b style="color:var(--text)">${v}회</b></span>`).join(' · ');
@@ -1178,7 +1217,7 @@ function update(){
     st.innerHTML=`
       <div class="stat"><div class="k">아하 타임 속도${anyBuff()?' (버프 후)':''}</div><div class="v" style="color:var(--accent)">${f1(a.spd)}</div><div class="d">AV ${f2(first)}${anyBuff()?` · 버프 전 ${f1(withBuff(false,()=>ahaInfo().spd))}`:''}${(()=>{const ac=active();return ac.some(c=>c.key==='waven')&&ac.length===2&&ac.some(isAeon)?'<br>+ 웨이브 승격: [환락만상] 중 동료 공격 후 +25 · 모든 아군 속도 +15% (순서 계산에 반영)':''})()}</div></div>
       <div class="stat"><div class="k">${n}사이클(${T} AV) 동안 아하 타임</div><div class="v">${cT}회</div><div class="d" style="margin-top:4px">${perCyc}</div>${ex?`<div class="d" style="margin-top:4px">기본 턴 <b style="color:var(--text)">${inT.length-ex}회</b> · ${exTxt}</div>`:''}</div>
-      <div class="stat"><div class="k">다음 횟수까지</div><div class="v">${isFinite(nd)?ceil1(gap).toFixed(1):'-'}</div><div class="d">아하 타임 속도가 이만큼 더 필요${isFinite(nd)&&a.coefs[0]&&a.pool[0]?` · 1위 환락 캐릭터 기준 +${ceil1(gap/a.coefs[0]).toFixed(1)}`:''}</div></div>`;
+      <div class="stat"><div class="k">다음 횟수까지</div><div class="v">${isFinite(nd)?ceil1(gap).toFixed(1):'-'}</div><div class="d">아하 타임 속도가 이만큼 더 필요${dlyBetter?`<br>${gapD<=1e-9?`<b style="color:var(--warn)">에이언즈 필살기를 아하 턴 뒤로 미루면 지금 속도로 가능</b> (행동 순서 표에서 '낭비' 표시된 필살기 → 아하 턴 뒤로 미루기)`:`<b style="color:var(--warn)">에이언즈 필살기를 아하 턴 뒤로 미루면 +${ceil1(gapD).toFixed(1)}</b> (속도 ${ceil1(ndD).toFixed(1)}에서 '낭비' 표시된 필살기를 미루면 돼요)`}`:''}${isFinite(nd)&&a.coefs[0]&&a.pool[0]?` · 1위 환락 캐릭터 기준 +${ceil1(gap/a.coefs[0]).toFixed(1)}`:''}</div></div>`;
     document.getElementById('ahaFormula').textContent='아하 타임 속도 = '+a.parts.join(' + ')+' = '+f2(a.spd);
     SUMBAR={spd:a.spd,cnt:cT,n,gap:isFinite(nd)?ceil1(gap):null};
   }
@@ -1317,7 +1356,11 @@ window.addEventListener('pagehide',flushCollect);
 (function(){const n=document.getElementById('collectNote'),c=document.getElementById('optOut');if(!collectOn()||!n)return;n.style.display='';c.checked=optedOut();
   c.onchange=()=>{try{localStorage.setItem('hsrOptOut',c.checked?'1':'0');}catch(e){}};})();
 
+// 테스트 사이트 전용: ?test=swlc → 은랑 전광 + 에이언즈 필살기 낭비 확인용 세팅
+const TEST_SWLC=/\/beta\//.test(location.pathname)&&/[?&]test=swlc\b/.test(location.search);
+if(TEST_SWLC){state.chars=['aeon_aha','pearl','silverwolf999','sparxie'].map(fromDb);state.fx=null;state.plan={};state.cycles=3;state.mode='moc';state.presetBuffs={gx:false};}
 bindCoef();bindSettings();renderChars();
+if(TEST_SWLC){const f=fxState();f.lc={silverwolf999:true};f.lcS={silverwolf999:1};update();try{history.replaceState(null,'',location.pathname);}catch(e){}}
 try{if(/\/beta\//.test(location.pathname))document.getElementById('betaBar').hidden=false;}catch(e){}
 // ===== v109: 익명 순위 =====
 var RANK={cache:new Map(),timer:null,last:'',off:false};
