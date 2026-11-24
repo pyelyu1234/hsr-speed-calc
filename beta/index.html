@@ -186,6 +186,17 @@ tr.mine td{background:rgba(197,139,255,.08)}
 .pt-ch i{width:8px;height:8px;border-radius:50%;display:inline-block}
 .pt-stats{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12.5px;color:var(--muted)}
 .pt-stats b{color:var(--text);font-size:13.5px}
+.pt.can{cursor:pointer}.pt.can:hover{border-color:#5a5390}.pt.open{border-color:var(--accent)}
+.pt-more{margin-top:6px;font-size:12px;color:var(--accent);font-weight:600}
+.pd{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.pd-h{font-size:12.5px;font-weight:800;color:var(--accent);margin:10px 0 6px}.pd-h:first-child{margin-top:0}.pd-h small{font-weight:600;color:var(--muted);margin-left:4px}
+.pd-m{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.pd-n{flex:none;width:84px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:5px}.pd-n i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.pd-r{flex:1;min-width:0;font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.pd-r>div{display:flex;flex-wrap:wrap;gap:3px 10px}.pd-l{font-size:12px}
+.pd-c{white-space:nowrap}.pd-c b{color:var(--text)}.pd-c.me{outline:1px solid var(--accent);border-radius:5px;padding:0 4px}
+.pd-v{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 10px;margin-bottom:6px}.pd-v.me{border-color:var(--accent)}
+.pd-vm{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:13px}.pd-vm b{color:var(--text)}.pd-vs{font-size:12px;color:var(--muted);margin-top:2px}.pd-vs b{color:var(--text)}
 .rl-head{margin:10px 0 6px;font-size:13.5px}
 .rl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:7px 8px;margin-bottom:6px}
 .rl select{width:auto;font-size:13px;padding:5px 6px}
@@ -193,6 +204,7 @@ tr.mine td{background:rgba(197,139,255,.08)}
 .rl .rl-n{width:46px!important}
 .rl .rl-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px}
 .rl .rl-hit{flex-basis:100%;font-size:11.5px;color:var(--muted)}
+/* v142: 순위 탭 인기 파티를 누르면 성혼 · 광추 상세 (DB calc_dist v7 필요) */
 /* v141: 필살기 끌어 옮기기 표시 강화 (떠다니는 표시 · 놓을 줄 강조 · 앞 줄 흐리게 · 옮긴 뒤 반짝임) */
 /* v140: 은랑 전광 슬라이더를 끄는 중에도 결과 바로 계산 */
 /* v139: 에이언즈 필살기 낭비 표시 + 미루기 버튼 · 다음 횟수까지 '미루면' 숫자 (자동 미룸은 계산용만) */
@@ -1495,14 +1507,32 @@ function renderRankView(r,me){
   // 4) 인기 파티
   const myPk=mine.map(p=>p.key).sort().join(',');
   document.getElementById('rvParties').innerHTML=(r.parties||[]).length?`<div class="pt-list">`+
-    r.parties.map((p,i)=>{const ks=p.pk.split(',').sort((a,b)=>(ORDER[a]||500)-(ORDER[b]||500));return `<div class="pt${p.pk===myPk?' mine':''}">
+    r.parties.map((p,i)=>{const ks=p.pk.split(',').sort((a,b)=>(ORDER[a]||500)-(ORDER[b]||500));const can=!!p.mem,open=can&&RV.pt===p.pk;return `<div class="pt${p.pk===myPk?' mine':''}${can?' can':''}${open?' open':''}" data-pk="${p.pk}">
       <div class="pt-rank">${i+1}</div>
       <div class="pt-main">
         <div class="pt-mem">${ks.map(x=>`<span class="pt-ch"><i style="background:${ULT_COLOR[x]||'#999'}"></i>${shortName(x)}</span>`).join('')}${p.pk===myPk?'<span class="rv-tag">내 파티</span>':''}</div>
         <div class="pt-stats"><span>사용 비율 <b>${Math.round(p.n/r.n*100)}%</b></span><span>평균 아하 타임 횟수 <b>${p.aha!=null?f1(p.aha)+'회':'-'}</b> <small>(${cyc}사이클)</small></span><span>평균 아하 타임 속도 <b>${p.ahaSpd!=null?f1(p.ahaSpd):'-'}</b></span></div>
+        ${can?(open?ptDetail(p,ks,cyc,k,p.pk===myPk?mine:null):'<div class="pt-more">눌러서 성혼 · 광추 보기 ▾</div>'):''}
       </div></div>`;}).join('')+`</div>`
     :`<div class="rk-empty">같은 파티가 ${k}명 이상인 조합이 생기면 순위가 보여요.</div>`;
 }
+// v142: 인기 파티를 누르면 그 파티의 성혼 · 광추 (파티원별 분포 + 5명 이상 모인 돌파·광추 조합)
+const PCT=(c,n)=>Math.round(c/n*100)+'%';
+function lcName(key,l){return (key==='aeon_aha'||key==='silverwolf999')?(+l?l+'중첩':'미착용'):(+l?'착용':'미착용');}
+function ptDetail(p,ks,cyc,k,mine){
+  const mem=ks.map(key=>{const m=(p.mem||{})[key]||{},eid=m.eid||{},lc=m.lc||{},n=Object.values(eid).reduce((a,b)=>a+b,0)||p.n;
+    const my=mine&&mine.find(x=>x.key===key);
+    const eTxt=Object.entries(eid).sort((a,b)=>b[1]-a[1]).map(([e,c])=>`<span class="pd-c${my&&+my.eid===+e?' me':''}">${e}돌 <b>${PCT(c,n)}</b></span>`).join('');
+    const lTxt=Object.entries(lc).sort((a,b)=>b[1]-a[1]).map(([l,c])=>`<span class="pd-c">${lcName(key,l)} <b>${PCT(c,n)}</b></span>`).join('');
+    return `<div class="pd-m"><div class="pd-n"><i style="background:${ULT_COLOR[key]||'#999'}"></i>${shortName(key)}</div><div class="pd-r"><div>${eTxt}</div><div class="pd-l">광추 ${lTxt}</div></div></div>`;}).join('');
+  const myVk=mine?mine.map(x=>`${x.key}:${Math.min(6,Math.max(0,+x.eid||0))}:${Math.min(5,Math.max(0,+x.lc||0))}`).sort().join(','):null;
+  const vars=(p.vars||[]).map(v=>{const parts=v.vk.split(',').map(t=>t.split(':')).sort((a,b)=>(ORDER[a[0]]||500)-(ORDER[b[0]]||500));
+    return `<div class="pd-v${v.vk===myVk?' me':''}"><div class="pd-vm">${parts.map(([key,e,l])=>`<span>${shortName(key)} <b>${e}돌${+l?(key==='aeon_aha'||key==='silverwolf999'?'·전'+l:'·광'):''}</b></span>`).join('')}</div><div class="pd-vs">이 파티의 <b>${PCT(v.n,p.n)}</b>${v.aha!=null?` · 아하 <b>${f1(v.aha)}회</b>`:''}${v.vk===myVk?' <span class="rv-tag">내 조합</span>':''}</div></div>`;}).join('');
+  return `<div class="pd"><div class="pd-h">파티원별 성혼 · 광추 <small>이 파티 안에서의 비율${mine?' · □ 내 성혼':''}</small></div>${mem}
+    <div class="pd-h">돌파 + 전용 광추 조합 <small>${k}명 이상 모인 조합만 · 아하는 ${cyc}사이클 평균</small></div>${vars||`<div class="rk-empty" style="margin:0">돌파 + 광추까지 같은 조합이 ${k}명 이상 모이면 보여요.</div>`}
+    <div class="pt-more">접기 ▴</div></div>`;
+}
+document.getElementById('rvParties').addEventListener('click',e=>{const el=e.target.closest('.pt.can');if(!el)return;RV.pt=RV.pt===el.dataset.pk?null:el.dataset.pk;loadRank();}); // 캐시에서 다시 그림 (새 요청 없음)
 document.querySelectorAll('#vTabs .vtab').forEach(b=>b.onclick=()=>showView(b.dataset.view));
 document.querySelectorAll('#rvMode .mtab').forEach(b=>b.onclick=()=>{RV.mode=b.dataset.v;loadRank();});
 document.getElementById('rvReload').onclick=()=>loadRank(true);
